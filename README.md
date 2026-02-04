@@ -68,3 +68,5 @@ claude-code-config/
 | [trailofbits/skills-internal](https://github.com/trailofbits/skills-internal) | Internal plugin marketplace (private) |
 | [trailofbits/dropkit](https://github.com/trailofbits/dropkit) | Development environment toolkit |
 | [trailofbits/claude-code-devcontainer](https://github.com/trailofbits/claude-code-devcontainer) | VS Code devcontainer for Claude Code |
+| [anthropics/knowledge-work-plugins](https://github.com/anthropics/knowledge-work-plugins) | Anthropic's knowledge work plugins |
+| [coreyhaines31/marketingskills](https://github.com/coreyhaines31/marketingskills) | Marketing-focused skills |

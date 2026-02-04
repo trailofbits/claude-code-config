@@ -42,6 +42,20 @@ Add marketplaces to `~/.claude/plugins/known_marketplaces.json`:
       "repo": "vercel-labs/agent-browser"
     },
     "installLocation": "~/.claude/plugins/marketplaces/agent-browser"
+  },
+  "knowledge-work-plugins": {
+    "source": {
+      "source": "github",
+      "repo": "anthropics/knowledge-work-plugins"
+    },
+    "installLocation": "~/.claude/plugins/marketplaces/knowledge-work-plugins"
+  },
+  "marketingskills": {
+    "source": {
+      "source": "github",
+      "repo": "coreyhaines31/marketingskills"
+    },
+    "installLocation": "~/.claude/plugins/marketplaces/marketingskills"
   }
 }
 ```
