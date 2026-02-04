@@ -38,6 +38,16 @@ cp scripts/statusline.sh ~/.claude/statusline.sh
 
 See [skills/README.md](skills/README.md) for setting up agent-browser and other skills.
 
+## Configure Plugins
+
+See [plugins/README.md](plugins/README.md) for marketplace setup and recommended plugins.
+
+**Quick setup:**
+
+1. Add marketplaces to `~/.claude/plugins/known_marketplaces.json`
+2. Add enabled plugins to `~/.claude/settings.json`
+3. Install via `claude plugins install <plugin>@<marketplace>`
+
 ## Configure Hooks
 
 Add hooks to `~/.claude/settings.json`. See [hooks/README.md](hooks/README.md) for copy-paste snippets.
@@ -52,8 +62,9 @@ Add to `~/.claude/settings.json`:
 
 ```json
 {
-  "status_line": {
-    "script": "~/.claude/statusline.sh"
+  "statusLine": {
+    "type": "command",
+    "command": "~/.claude/statusline.sh"
   }
 }
 ```

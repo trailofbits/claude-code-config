@@ -10,6 +10,7 @@ Shareable Claude Code configuration for team onboarding. Clone this repo and get
 | `hooks/` | Safety hooks (rm-rf blocker, git push protection) |
 | `scripts/` | Statusline, local LLM server |
 | `skills/` | Skill setup (agent-browser) |
+| `plugins/` | Plugin marketplaces and recommended plugins |
 | `mcp-servers/` | Context7, Exa MCP configs |
 | `guides/` | Quick reference cheatsheet |
 
@@ -45,6 +46,8 @@ claude-code-config/
 │   └── mlx-serve          # Local LLM server (Apple Silicon)
 ├── skills/
 │   └── README.md          # Skill setup (agent-browser)
+├── plugins/
+│   └── README.md          # Marketplaces and plugins
 ├── mcp-servers/
 │   └── README.md          # MCP server configs
 └── guides/
@@ -56,3 +59,12 @@ claude-code-config/
 - Claude Code CLI
 - Node.js 22+
 - macOS (for statusline, mlx-serve)
+
+## Related Repositories
+
+| Repository | Description |
+|------------|-------------|
+| [trailofbits/skills](https://github.com/trailofbits/skills) | Public plugin marketplace |
+| [trailofbits/skills-internal](https://github.com/trailofbits/skills-internal) | Internal plugin marketplace (private) |
+| [trailofbits/dropkit](https://github.com/trailofbits/dropkit) | Development environment toolkit |
+| [trailofbits/claude-code-devcontainer](https://github.com/trailofbits/claude-code-devcontainer) | VS Code devcontainer for Claude Code |
