@@ -71,21 +71,11 @@ alias claude-yolo="claude --dangerously-skip-permissions"
 
 ## Fast Mode
 
-Toggle with `/fast` in any session. Fast mode runs the same Opus 4.6 model with up to 2.5x faster output token generation. It is not a different model -- same weights, same intelligence, same capabilities, just a faster inference configuration.
+`/fast` toggles fast mode. Same Opus 4.6 model, ~2.5x faster output, 6x the cost per token. Leave it off by default.
 
-**Use it.** The speed improvement is real and noticeable during interactive work. Debugging, rapid iteration, code review, anything where you're waiting on Claude and then immediately acting on the output -- fast mode makes a material difference to your throughput as a human-in-the-loop operator.
+The only time fast mode is worth it is **tight interactive loops** -- you're debugging live, iterating on output, and every second of latency costs you focus. If you're about to kick off an autonomous run (`/fix-issue`, a swarm, anything you walk away from), turn it off first. The agent doesn't benefit from lower latency; you're just burning money.
 
-**Don't leave it on for everything.** Fast mode costs 6x more per token (3x during promotional periods). For long autonomous runs -- `/fix-issue`, multi-agent swarms, background tasks where you're not watching -- standard mode is the right call. The agent doesn't care about latency; your wallet does.
-
-**Enable it at session start, not mid-conversation.** Switching to fast mode mid-session means you pay full fast-mode uncached input pricing for your entire conversation history up to that point. It also invalidates prompt cache -- fast and standard don't share cached prefixes. Starting a session in fast mode avoids both penalties.
-
-**Rate limits are separate.** Fast mode has its own rate limit pool. When you hit it, Claude Code falls back to standard speed automatically (the `↯` icon grays out). You can also toggle it off manually with `/fast` when you're done with the interactive phase and switching to autonomous work.
-
-**Requirements:** Extra usage billing must be enabled on your account. For Teams/Enterprise, an admin must enable fast mode explicitly. Not available on Bedrock, Vertex, or Azure.
-
-### Rule of thumb
-
-Use fast mode when **you** are the bottleneck (interactive debugging, live iteration, reviewing output in real time). Use standard mode when **Claude** is the bottleneck (long autonomous tasks, batch work, background agents). If you're not sure, start with fast mode and switch to standard when you walk away.
+If you do use it, enable it at session start. Toggling it on mid-conversation reprices your entire context at fast-mode rates and invalidates prompt cache.
 
 ## Sandboxing
 
