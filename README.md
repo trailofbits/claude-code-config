@@ -474,17 +474,19 @@ Local models move fast. When this recommendation is stale, check the [LM Studio 
 
 #### Setup
 
-Download and start serving the model:
+Download, load, and serve -- all from the CLI:
 
 ```bash
-lms get lmstudio-community/Qwen3-Coder-Next-MLX-4bit
-lms load lmstudio-community/Qwen3-Coder-Next-MLX-4bit --gpu max
+lms get lmstudio-community/Qwen3-Coder-Next-MLX-4bit -y
+lms load lmstudio-community/Qwen3-Coder-Next-MLX-4bit --context-length 32768 --gpu max -y
 lms server start
 ```
 
-In LM Studio's model settings, set context length to at least 25K tokens (Claude Code is context-heavy). Use the recommended sampling parameters: temperature 1.0, top-p 0.95, top-k 40, min-p 0.01.
+`--context-length 32768` allocates a 32K context window at load time. Claude Code is context-heavy, so don't go below 25K. Sampling parameters (temperature, top-p, etc.) don't need to be configured on the server -- Claude Code sends its own in each API request.
 
 #### Running Claude Code locally
+
+Point Claude Code at LM Studio by setting the base URL and an auth token (any string works for local servers):
 
 ```bash
 ANTHROPIC_BASE_URL=http://localhost:1234 \
@@ -492,16 +494,18 @@ ANTHROPIC_AUTH_TOKEN=lmstudio \
 claude
 ```
 
-Or add a shell function to `~/.zshrc`:
+To avoid typing that every time, add to `~/.zshrc`:
 
 ```bash
-local-claude() {
+claude-local() {
   ANTHROPIC_BASE_URL=http://localhost:1234 \
   ANTHROPIC_AUTH_TOKEN=lmstudio \
   CLAUDE_CODE_DISABLE_NONESSENTIAL_TRAFFIC=1 \
   claude "$@"
 }
 ```
+
+`claude-local` wraps `claude` with the local server env vars and disables telemetry pings that won't reach Anthropic anyway. Use it anywhere you'd normally run `claude`.
 
 #### Environment variables
 
@@ -520,6 +524,8 @@ local-claude() {
 Custom slash commands are markdown files that define reusable workflows. Below are two examples you can adapt. Save them as `.claude/commands/<name>.md` in your project or `~/.claude/commands/<name>.md` globally.
 
 #### Review PR
+
+Reviews a GitHub PR with parallel agents, fixes findings, and pushes. Invoke with `/review-pr 456` where `456` is the PR number.
 
 ```markdown
 # Review and Fix PR
@@ -585,6 +591,8 @@ Add a comment on PR #$PR_NUMBER summarizing what was done:
 ```
 
 #### Fix Issue
+
+Takes a GitHub issue and fully autonomously completes it -- plans, implements, tests, creates a PR, self-reviews with parallel agents, fixes its own findings, and comments on the issue when done. Invoke with `/fix-issue 123` where `123` is the issue number.
 
 ```markdown
 # Fix GitHub Issue
