@@ -15,11 +15,5 @@
   "statusLine": {
     "type": "command",
     "command": "~/.claude/statusline.sh"
-  },
-  "enabledPlugins": {
-    "superpowers@superpowers-marketplace": true,
-    "superpowers-developing-for-claude-code@superpowers-marketplace": true,
-    "compound-engineering@every-marketplace": true,
-    "agent-browser@agent-browser": true
   }
 }

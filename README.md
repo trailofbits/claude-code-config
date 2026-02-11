@@ -4,11 +4,25 @@ Reference setup for Claude Code at Trail of Bits. Not a plugin -- just documenta
 
 ## Contents
 
-**[Getting Started](#getting-started)** -- [Read These First](#read-these-first) | [Prerequisites](#prerequisites) | [Shell Setup](#shell-setup) | [Settings](#settings) | [Global CLAUDE.md](#global-claudemd)
+**[Getting Started](#getting-started)**
+- [Read These First](#read-these-first)
+- [Prerequisites](#prerequisites)
+- [Shell Setup](#shell-setup)
+- [Settings](#settings)
+- [Global CLAUDE.md](#global-claudemd)
+- [Continuous Improvement](#continuous-improvement)
 
-**[Configuration](#configuration)** -- [Fast Mode](#fast-mode) | [Sandboxing](#sandboxing) | [Hooks](#hooks) | [Continuous Improvement](#continuous-improvement) | [Plugins and Skills](#plugins-and-skills) | [MCP Servers](#mcp-servers)
+**[Configuration](#configuration)**
+- [Sandboxing](#sandboxing)
+- [Hooks](#hooks)
+- [Plugins and Skills](#plugins-and-skills)
+- [MCP Servers](#mcp-servers)
+- [Fast Mode](#fast-mode)
 
-**[Usage](#usage)** -- [Web Browsing](#web-browsing) | [Local Models](#local-models) | [Example Commands](#example-commands)
+**[Usage](#usage)**
+- [Web Browsing](#web-browsing)
+- [Local Models](#local-models)
+- [Example Commands](#example-commands)
 
 ## Getting Started
 
@@ -76,11 +90,22 @@ alias claude-yolo="claude --dangerously-skip-permissions"
 
 ### Settings
 
-Copy `settings.json` to `~/.claude/settings.json` (or merge entries into your existing file). The hooks described in the [Hooks](#hooks) section are defined in this file.
+Copy `settings.json` to `~/.claude/settings.json` (or merge entries into your existing file). The template includes:
+
+- **`cleanupPeriodDays: 365`** -- keeps conversation history for a year instead of the default 30 days, so `/insights` has more data
+- **`hooks`** -- two `PreToolUse` hooks on Bash that block `rm -rf` and direct push to main (see [Hooks](#hooks))
+- **`statusLine`** -- points to the statusline script (see below)
 
 #### Statusline
 
-A two-line status bar showing repo context, git branch, lines changed, model name, cost, session time, context window remaining, and cache hit rate.
+A two-line status bar at the bottom of the terminal:
+
+```
+ claude-code-config │ main │ +42 -17
+ Claude Opus 4.6 │ $0.83 │ 12m 34s │ 72% ↻89%
+```
+
+Line 1 shows the repo name, git branch, and lines changed. Line 2 shows the model, session cost, elapsed time, context window remaining (color-coded: green >50%, yellow >20%, red below), and prompt cache hit rate.
 
 Copy the script:
 
@@ -104,15 +129,27 @@ cp claude-md-template.md ~/.claude/CLAUDE.md
 
 Review and customize it for your own preferences. The template is opinionated -- it assumes specific tools (`ruff`, `ty`, `oxlint`, `cargo clippy`, etc.) and enforces hard limits on function length, complexity, and line width.
 
+### Continuous Improvement
+
+Most people's use of Claude Code plateaus early. You find a workflow that works, repeat it, and never discover what you're leaving on the table. The fix is a deliberate feedback loop: review what happened, adjust your setup, and let the next week benefit from what you learned.
+
+#### Keep history longer
+
+By default Claude Code deletes conversation history after 30 days. Increase this so `/insights` and your own review have more data to work with:
+
+Add to `~/.claude/settings.json`:
+
+```json
+{
+  "cleanupPeriodDays": 365
+}
+```
+
+#### Run /insights weekly
+
+`/insights` analyzes your recent sessions and surfaces patterns -- what's working, what's failing, where you're spending time. Run it once a week. When it tells you something useful, act on it: add a rule to your CLAUDE.md, write a hook to block a mistake you keep making, extract a repeated workflow into a skill. Each adjustment compounds. After a few weeks your setup is meaningfully different from the defaults, tuned to how you actually work.
+
 ## Configuration
-
-### Fast Mode
-
-`/fast` toggles fast mode. Same Opus 4.6 model, ~2.5x faster output, 6x the cost per token. Leave it off by default.
-
-The only time fast mode is worth it is **tight interactive loops** -- you're debugging live, iterating on output, and every second of latency costs you focus. If you're about to kick off an autonomous run (`/fix-issue`, a swarm, anything you walk away from), turn it off first. The agent doesn't benefit from lower latency; you're just burning money.
-
-If you do use it, enable it at session start. Toggling it on mid-conversation reprices your entire context at fast-mode rates and invalidates prompt cache.
 
 ### Sandboxing
 
@@ -212,24 +249,6 @@ Use hooks for:
 - **Enforcing workflow conventions** (require tests pass before marking tasks complete)
 - **Adapting agent behavior** without modifying the agent itself (Agent SDK, MCP integrations)
 
-### Continuous Improvement
-
-#### Keep history longer
-
-By default Claude Code deletes conversation history after 30 days. Increase this so `/insights` and your own review have more data to work with:
-
-Add to `~/.claude/settings.json`:
-
-```json
-{
-  "cleanupPeriodDays": 365
-}
-```
-
-#### Run /insights weekly
-
-The `/insights` command analyzes your recent sessions and surfaces patterns -- what's working, what's failing, where you're spending time. Run it once a week to catch blind spots before they become habits.
-
 ### Plugins and Skills
 
 Claude Code's capabilities come from plugins, which provide skills (reusable workflows), agents (specialized subagents), and commands (slash commands). Plugins are distributed through marketplaces.
@@ -284,6 +303,14 @@ MCP servers are configured in `.mcp.json` files. Claude Code merges configs from
 - **`.mcp.json` in the project root** -- project-specific servers
 
 Copy `mcp-template.json` from this repo to `~/.mcp.json` for global availability. Replace `your-exa-api-key-here` with your actual key, or remove the `exa` entry if you don't have one. Add project-specific MCP servers (e.g., a local database tool) to the project's `.mcp.json`.
+
+### Fast Mode
+
+`/fast` toggles fast mode. Same Opus 4.6 model, ~2.5x faster output, 6x the cost per token. Leave it off by default.
+
+The only time fast mode is worth it is **tight interactive loops** -- you're debugging live, iterating on output, and every second of latency costs you focus. If you're about to kick off an autonomous run (`/fix-issue`, a swarm, anything you walk away from), turn it off first. The agent doesn't benefit from lower latency; you're just burning money.
+
+If you do use it, enable it at session start. Toggling it on mid-conversation reprices your entire context at fast-mode rates and invalidates prompt cache.
 
 ## Usage
 
