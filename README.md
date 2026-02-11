@@ -2,6 +2,22 @@
 
 Reference setup for Claude Code at Trail of Bits. Not a plugin -- just documentation and config files you copy into place.
 
+## Contents
+
+- [Prerequisites](#prerequisites)
+- [Shell Setup](#shell-setup)
+- [Sandboxing](#sandboxing)
+- [Global CLAUDE.md](#global-claudemd)
+- [Hooks](#hooks)
+- [Settings](#settings)
+- [Plugins and Skills](#plugins-and-skills)
+- [MCP Servers](#mcp-servers)
+- [Web Browsing](#web-browsing)
+- [Local Models](#local-models)
+- [Example Commands](#example-commands)
+- [Continuous Improvement](#continuous-improvement)
+- [Recommended Reading](#recommended-reading)
+
 ## Prerequisites
 
 Install core tools via Homebrew:
@@ -161,27 +177,71 @@ chmod +x ~/.claude/statusline.sh
 
 The `statusLine` entry in `settings.json` points to this script. Requires `jq`.
 
-### Plugins and marketplaces
+## Plugins and Skills
 
-The `settings.json` file includes `enabledPlugins` with four plugins enabled by default:
+Claude Code's capabilities come from plugins, which provide skills (reusable workflows), agents (specialized subagents), and commands (slash commands). Plugins are distributed through marketplaces.
 
-| Plugin | Marketplace | Purpose |
-|--------|-------------|---------|
-| `superpowers` | superpowers-marketplace | Brainstorming, TDD, debugging, verification workflows |
-| `superpowers-developing-for-claude-code` | superpowers-marketplace | Plugin/skill development helpers |
-| `compound-engineering` | every-marketplace | Planning, review, work execution workflows |
-| `agent-browser` | agent-browser | Browser automation CLI |
+### Trail of Bits marketplaces
 
-Marketplaces are registered in `~/.claude/plugins/known_marketplaces.json`. The [trailofbits/skills-curated](https://github.com/trailofbits/skills-curated) repo maintains the recommended list of marketplaces -- see its README for the current JSON to copy into place.
-
-Install the plugins:
+Install the three Trail of Bits marketplaces:
 
 ```bash
-claude plugins install superpowers@superpowers-marketplace
-claude plugins install superpowers-developing-for-claude-code@superpowers-marketplace
-claude plugins install compound-engineering@every-marketplace
-claude plugins install agent-browser@agent-browser
+claude plugins install trailofbits@trailofbits
+claude plugins install trailofbits-internal@trailofbits-internal
+claude plugins install skills-curated@trailofbits-curated
 ```
+
+| Repository | Description |
+|------------|-------------|
+| [trailofbits/skills](https://github.com/trailofbits/skills) | Public skills for security auditing, code review, and development workflows |
+| [trailofbits/skills-internal](https://github.com/trailofbits/skills-internal) | Internal skills for Trail of Bits engineers (private) |
+| [trailofbits/skills-curated](https://github.com/trailofbits/skills-curated) | Curated third-party skills and recommended external marketplaces |
+
+For external marketplaces and additional plugins, see [skills-curated](https://github.com/trailofbits/skills-curated) -- it maintains the canonical list of vetted marketplaces and install scripts.
+
+### Writing custom skills
+
+Skills are the highest-leverage way to encode team knowledge into Claude Code. When you find yourself repeating the same multi-step workflow, extract it into a skill.
+
+A skill is a directory with a `SKILL.md` file:
+
+```
+~/.claude/skills/
+└── my-skill/
+    └── SKILL.md
+```
+
+The `SKILL.md` uses YAML frontmatter for metadata and markdown for instructions:
+
+```markdown
+---
+name: my-skill
+description: >-
+  What this skill does and when Claude should use it.
+  Be specific about triggers -- what the user says or
+  what situation should activate this skill.
+allowed-tools:
+  - Read
+  - Write
+  - Bash
+---
+
+# My Skill
+
+Step-by-step instructions for Claude to follow.
+Reference files with `{baseDir}/path` for paths
+relative to the skill directory.
+```
+
+Tips for effective skills:
+
+- **Be specific about triggers** -- the `description` field tells Claude when to activate the skill. Vague descriptions lead to skills that never fire or fire at the wrong time.
+- **Include "when NOT to use" guidance** -- negative examples prevent false activations.
+- **Use `allowed-tools` to limit scope** -- a skill that only reads files can't accidentally write to them.
+- **Keep reference data in sibling files** -- put templates, examples, or lookup tables next to `SKILL.md` and reference them with `{baseDir}/filename`.
+- **Test with `/skill-name`** -- invoke the skill directly to verify it works before relying on auto-activation.
+
+For team-wide skills, publish them to a plugin marketplace.
 
 ## MCP Servers
 
@@ -224,24 +284,6 @@ Workflow: open -> snapshot -> interact -> re-snapshot after navigation.
 Browser automation via the [Claude in Chrome](https://chromewebstore.google.com/detail/claude-in-chrome/afnknkaociebljpilnhfkoigcfpaihih) extension. Best for visual inspection, screenshot-based analysis, and interacting with pages that need real browser rendering (SPAs, authenticated sessions, complex UIs). Connects as an MCP server -- no CLI needed.
 
 Use agent-browser when you need scriptable, repeatable automation. Use Claude in Chrome when you need to see and reason about what's on the screen.
-
-## Skills Repositories
-
-Trail of Bits maintains three skills repositories installed as Claude Code plugins:
-
-- [trailofbits/skills](https://github.com/trailofbits/skills) -- public skills for security auditing, code review, and development workflows
-- [trailofbits/skills-internal](https://github.com/trailofbits/skills-internal) -- internal skills for Trail of Bits engineers (private)
-- [trailofbits/skills-curated](https://github.com/trailofbits/skills-curated) -- curated third-party skills and recommended plugin marketplaces
-
-`skills-curated` also maintains the canonical `known_marketplaces.json` listing all vetted marketplaces.
-
-Install from the Trail of Bits marketplace:
-
-```bash
-claude plugins install trailofbits@trailofbits
-claude plugins install trailofbits-internal@trailofbits-internal
-claude plugins install skills-curated@trailofbits-curated
-```
 
 ## Local Models
 
@@ -447,85 +489,6 @@ Include:
 - Link to the PR
 ```
 
-## Quick Reference
-
-### Skills
-
-| Trigger | Skill | Purpose |
-|---------|-------|---------|
-| Starting work | `/superpowers:brainstorm` | Refine ideas before implementing |
-| Need plan | `/superpowers:write-plan` | Create implementation plan |
-| Executing plan | `/superpowers:execute-plan` | Run plan in batches |
-| Features/bugfixes | `/superpowers:test-driven-development` | Write test first |
-| Debugging | `/superpowers:systematic-debugging` | Four-phase debug framework |
-| Before "done" | `/superpowers:verification-before-completion` | Verify before claiming complete |
-| Creating commits | `/commit` | Guided commit workflow |
-| Full PR workflow | `/commit-push-pr` | Commit, push, create PR |
-| Code review | `/code-review` | Review PR |
-| Frontend UIs | `/frontend-design` | Build interfaces |
-| Browser automation | `/agent-browser` | Automate web interactions |
-
-### Compound Engineering Agents
-
-| Agent | Purpose |
-|-------|---------|
-| `performance-oracle` | Performance analysis |
-| `architecture-strategist` | Architecture review |
-| `framework-docs-researcher` | Research framework docs |
-| `git-history-analyzer` | Analyze git history |
-| `code-simplicity-reviewer` | Simplify code |
-| `kieran-python-reviewer` | Python code review |
-| `kieran-rails-reviewer` | Rails code review |
-| `kieran-typescript-reviewer` | TypeScript code review |
-
-### CLI Tools
-
-| Tool | Replaces | Usage |
-|------|----------|-------|
-| `rg` | grep | `rg "pattern"` |
-| `fd` | find | `fd "*.py"` |
-| `ast-grep` | -- | `ast-grep --pattern '$FUNC($$$)' --lang py` |
-| `trash` | rm | `trash file` (recoverable) |
-| `wt` | git worktree | `wt switch branch` |
-| `prek` | pre-commit | `prek run` |
-
-### Language Tooling
-
-**Python (3.13)**
-
-| Purpose | Tool |
-|---------|------|
-| Deps | `uv` |
-| Lint/Format | `ruff check` / `ruff format` |
-| Types | `ty check` |
-| Tests | `pytest -q` |
-
-**Node/TypeScript (22 LTS)**
-
-| Purpose | Tool |
-|---------|------|
-| Lint | `oxlint` |
-| Format | `oxfmt` |
-| Types | `tsc --noEmit` |
-| Tests | `vitest` |
-
-**Rust**
-
-| Purpose | Tool |
-|---------|------|
-| Lint | `cargo clippy --all-targets --all-features -- -D warnings` |
-| Format | `cargo fmt` |
-| Tests | `cargo test` |
-| Supply chain | `cargo deny check` |
-
-### Code Quality Limits
-
-- 100 lines/function max
-- Cyclomatic complexity <=8
-- 5 positional params max
-- 100-char line length
-- No relative (`..`) imports
-
 ## Continuous Improvement
 
 ### Keep history longer
@@ -543,62 +506,6 @@ Add to `~/.claude/settings.json`:
 ### Run /insights weekly
 
 The `/insights` command analyzes your recent sessions and surfaces patterns -- what's working, what's failing, where you're spending time. Run it once a week to catch blind spots before they become habits.
-
-### Write custom skills
-
-Skills are the highest-leverage way to encode team knowledge into Claude Code. When you find yourself repeating the same multi-step workflow, extract it into a skill.
-
-A skill is a directory with a `SKILL.md` file:
-
-```
-~/.claude/skills/
-└── my-skill/
-    └── SKILL.md
-```
-
-The `SKILL.md` uses YAML frontmatter for metadata and markdown for instructions:
-
-```markdown
----
-name: my-skill
-description: >-
-  What this skill does and when Claude should use it.
-  Be specific about triggers -- what the user says or
-  what situation should activate this skill.
-allowed-tools:
-  - Read
-  - Write
-  - Bash
----
-
-# My Skill
-
-Step-by-step instructions for Claude to follow.
-Reference files with `{baseDir}/path` for paths
-relative to the skill directory.
-```
-
-Tips for effective skills:
-
-- **Be specific about triggers** -- the `description` field tells Claude when to activate the skill. Vague descriptions lead to skills that never fire or fire at the wrong time.
-- **Include "when NOT to use" guidance** -- negative examples prevent false activations.
-- **Use `allowed-tools` to limit scope** -- a skill that only reads files can't accidentally write to them.
-- **Keep reference data in sibling files** -- put templates, examples, or lookup tables next to `SKILL.md` and reference them with `{baseDir}/filename`.
-- **Test with `/skill-name`** -- invoke the skill directly to verify it works before relying on auto-activation.
-
-For team-wide skills, publish them to a plugin marketplace (see [Skills Repositories](#skills-repositories)).
-
-## Related Repositories
-
-| Repository | Description |
-|------------|-------------|
-| [trailofbits/skills](https://github.com/trailofbits/skills) | Public plugin marketplace |
-| [trailofbits/skills-internal](https://github.com/trailofbits/skills-internal) | Internal plugin marketplace (private) |
-| [trailofbits/skills-curated](https://github.com/trailofbits/skills-curated) | Curated marketplaces and third-party skills |
-| [trailofbits/dropkit](https://github.com/trailofbits/dropkit) | Lightweight macOS sandbox |
-| [trailofbits/claude-code-devcontainer](https://github.com/trailofbits/claude-code-devcontainer) | VS Code devcontainer for Claude Code |
-| [anthropics/knowledge-work-plugins](https://github.com/anthropics/knowledge-work-plugins) | Anthropic's knowledge work plugins |
-| [coreyhaines31/marketingskills](https://github.com/coreyhaines31/marketingskills) | Marketing-focused skills |
 
 ## Recommended Reading
 
