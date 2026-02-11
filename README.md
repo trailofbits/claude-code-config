@@ -439,7 +439,9 @@ A session that stays within its context budget produces better code than one tha
 
 **Prefer `/clear` over `/compact`.** `/clear` wipes the conversation and starts fresh. `/compact` summarizes and continues. Default to `/clear` between tasks.
 
-`/compact` is useful when you're mid-task and need to reclaim space without losing your place, but each compaction is a lossy compression -- details get dropped, and the model's understanding of your intent degrades slightly. Two compactions in a session is a sign the task was too large. `/clear` has no information loss because there's nothing to lose -- your CLAUDE.md reloads, git state is fresh, and the agent re-reads whatever files it needs.
+`/compact` is useful when you're mid-task and need to reclaim space without losing your place, but each compaction is a lossy compression -- details get dropped, and the model's understanding of your intent degrades slightly. Two compactions in a session is a sign the task was too large. `/clear` has no information loss because there's nothing to lose -- your CLAUDE.md reloads, git state is fresh, and the agent re-reads whatever files it needs. When you do use `/compact`, pass focus instructions to steer the summary: `/compact Focus on the auth refactor` preserves what matters and sheds the rest.
+
+**Cut your losses after two corrections.** If you've corrected Claude twice on the same issue and it's still wrong, the context is polluted with failed approaches. Don't keep pushing -- `/clear` and write a better initial prompt that incorporates what you learned. A clean session with a precise prompt almost always outperforms a long session with accumulated corrections.
 
 **Use checkpoints to recover, not to prevent.** Checkpoints (`Esc Esc` or `/rewind`) let you restore code and conversation to any previous prompt in the session. They're your undo system -- if Claude goes down a wrong path, rewind to before it diverged instead of trying to talk it back.
 
@@ -449,9 +451,11 @@ The "Summarize from here" option in the rewind menu is a more surgical alternati
 
 Use this deliberately: when a task requires reading a lot of documentation, exploring unfamiliar code, or doing research that would bloat your main session, delegate it to a subagent. The main session stays lean and focused on implementation while subagents handle the context-heavy exploration.
 
+**For complex features, interview first, implement second.** Have Claude interview you about the feature (requirements, edge cases, tradeoffs), then write a spec to a file. Start a fresh session to implement the spec. The implementation session has clean context focused entirely on building, and you have a written spec as the source of truth.
+
 **Put stable context in CLAUDE.md, not the conversation.** Project architecture, coding standards, tool preferences, workflow conventions -- anything reusable goes in CLAUDE.md. It loads automatically every session and survives `/clear`.
 
-If you need to pass context between sessions, commit your work, write a brief plan to a file, `/clear`, and start the next session by pointing Claude at that file. Git is your cross-session memory -- not CLAUDE.md, not compaction summaries.
+If you need to pass context between sessions, commit your work, write a brief plan to a file, `/clear`, and start the next session by pointing Claude at that file. You can also resume previous sessions with `claude --continue` (picks up the last session) or `claude --resume` (lets you choose from recent sessions). But a fresh session with a written handoff is usually better than resuming a stale one -- the context is cleaner and the prompt cache is warm.
 
 ### Web Browsing
 
