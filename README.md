@@ -4,10 +4,13 @@ Reference setup for Claude Code at Trail of Bits. Not a plugin -- just documenta
 
 ## Contents
 
+- [Read These First](#read-these-first)
 - [Prerequisites](#prerequisites)
 - [Shell Setup](#shell-setup)
+- [Fast Mode](#fast-mode)
 - [Sandboxing](#sandboxing)
 - [Global CLAUDE.md](#global-claudemd)
+- [Continuous Improvement](#continuous-improvement)
 - [Hooks](#hooks)
 - [Settings](#settings)
 - [Plugins and Skills](#plugins-and-skills)
@@ -15,8 +18,16 @@ Reference setup for Claude Code at Trail of Bits. Not a plugin -- just documenta
 - [Web Browsing](#web-browsing)
 - [Local Models](#local-models)
 - [Example Commands](#example-commands)
-- [Continuous Improvement](#continuous-improvement)
-- [Recommended Reading](#recommended-reading)
+
+## Read These First
+
+Before configuring anything, read these to understand the context for why this setup works the way it does:
+
+- [Best practices for Claude Code](https://code.claude.com/docs/en/best-practices) -- Anthropic's official guide to working effectively with Claude Code
+- [Here's how I use LLMs to help me write code](https://simonwillison.net/2025/Mar/11/using-llms-for-code/) -- Simon Willison on practical LLM-assisted coding techniques
+- [AI-assisted coding for teams that can't get away with vibes](https://blog.nilenso.com/blog/2025/05/29/ai-assisted-coding/) -- Nilenso's playbook for teams integrating AI tools with high standards
+- [My AI Skeptic Friends Are All Nuts](https://fly.io/blog/youre-all-nuts/) -- Thomas Ptacek on why dismissing LLMs for coding is a mistake
+- [Harness engineering](https://openai.com/index/harness-engineering/) -- OpenAI on building a product with zero manually-written code
 
 ## Prerequisites
 
@@ -56,7 +67,15 @@ Add to `~/.zshrc`:
 alias claude-yolo="claude --dangerously-skip-permissions"
 ```
 
-`--dangerously-skip-permissions` bypasses all permission prompts. This is the recommended way to run Claude Code for maximum throughput -- pair it with sandboxing (next section).
+`--dangerously-skip-permissions` bypasses all permission prompts. This is the recommended way to run Claude Code for maximum throughput -- pair it with sandboxing (below).
+
+## Fast Mode
+
+`/fast` toggles fast mode. Same Opus 4.6 model, ~2.5x faster output, 6x the cost per token. Leave it off by default.
+
+The only time fast mode is worth it is **tight interactive loops** -- you're debugging live, iterating on output, and every second of latency costs you focus. If you're about to kick off an autonomous run (`/fix-issue`, a swarm, anything you walk away from), turn it off first. The agent doesn't benefit from lower latency; you're just burning money.
+
+If you do use it, enable it at session start. Toggling it on mid-conversation reprices your entire context at fast-mode rates and invalidates prompt cache.
 
 ## Sandboxing
 
@@ -95,6 +114,24 @@ cp claude-md-template.md ~/.claude/CLAUDE.md
 ```
 
 Review and customize it for your own preferences. The template is opinionated -- it assumes specific tools (`ruff`, `ty`, `oxlint`, `cargo clippy`, etc.) and enforces hard limits on function length, complexity, and line width.
+
+## Continuous Improvement
+
+### Keep history longer
+
+By default Claude Code deletes conversation history after 30 days. Increase this so `/insights` and your own review have more data to work with:
+
+Add to `~/.claude/settings.json`:
+
+```json
+{
+  "cleanupPeriodDays": 365
+}
+```
+
+### Run /insights weekly
+
+The `/insights` command analyzes your recent sessions and surfaces patterns -- what's working, what's failing, where you're spending time. Run it once a week to catch blind spots before they become habits.
 
 ## Hooks
 
@@ -478,29 +515,3 @@ Include:
 - Key design decisions
 - Link to the PR
 ```
-
-## Continuous Improvement
-
-### Keep history longer
-
-By default Claude Code deletes conversation history after 30 days. Increase this so `/insights` and your own review have more data to work with:
-
-Add to `~/.claude/settings.json`:
-
-```json
-{
-  "cleanupPeriodDays": 365
-}
-```
-
-### Run /insights weekly
-
-The `/insights` command analyzes your recent sessions and surfaces patterns -- what's working, what's failing, where you're spending time. Run it once a week to catch blind spots before they become habits.
-
-## Recommended Reading
-
-- [Best practices for Claude Code](https://code.claude.com/docs/en/best-practices) -- Anthropic's official guide to working effectively with Claude Code
-- [Here's how I use LLMs to help me write code](https://simonwillison.net/2025/Mar/11/using-llms-for-code/) -- Simon Willison on practical LLM-assisted coding techniques
-- [AI-assisted coding for teams that can't get away with vibes](https://blog.nilenso.com/blog/2025/05/29/ai-assisted-coding/) -- Nilenso's playbook for teams integrating AI tools with high standards
-- [My AI Skeptic Friends Are All Nuts](https://fly.io/blog/youre-all-nuts/) -- Thomas Ptacek on why dismissing LLMs for coding is a mistake
-- [Harness engineering](https://openai.com/index/harness-engineering/) -- OpenAI on building a product with zero manually-written code
