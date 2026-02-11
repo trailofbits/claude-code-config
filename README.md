@@ -4,22 +4,15 @@ Reference setup for Claude Code at Trail of Bits. Not a plugin -- just documenta
 
 ## Contents
 
-- [Read These First](#read-these-first)
-- [Prerequisites](#prerequisites)
-- [Shell Setup](#shell-setup)
-- [Fast Mode](#fast-mode)
-- [Sandboxing](#sandboxing)
-- [Global CLAUDE.md](#global-claudemd)
-- [Continuous Improvement](#continuous-improvement)
-- [Hooks](#hooks)
-- [Settings](#settings)
-- [Plugins and Skills](#plugins-and-skills)
-- [MCP Servers](#mcp-servers)
-- [Web Browsing](#web-browsing)
-- [Local Models](#local-models)
-- [Example Commands](#example-commands)
+**[Getting Started](#getting-started)** -- [Read These First](#read-these-first) | [Prerequisites](#prerequisites) | [Shell Setup](#shell-setup) | [Settings](#settings) | [Global CLAUDE.md](#global-claudemd)
 
-## Read These First
+**[Configuration](#configuration)** -- [Fast Mode](#fast-mode) | [Sandboxing](#sandboxing) | [Hooks](#hooks) | [Continuous Improvement](#continuous-improvement) | [Plugins and Skills](#plugins-and-skills) | [MCP Servers](#mcp-servers)
+
+**[Usage](#usage)** -- [Web Browsing](#web-browsing) | [Local Models](#local-models) | [Example Commands](#example-commands)
+
+## Getting Started
+
+### Read These First
 
 Before configuring anything, read these to understand the context for why this setup works the way it does:
 
@@ -29,7 +22,19 @@ Before configuring anything, read these to understand the context for why this s
 - [My AI Skeptic Friends Are All Nuts](https://fly.io/blog/youre-all-nuts/) -- Thomas Ptacek on why dismissing LLMs for coding is a mistake
 - [Harness engineering](https://openai.com/index/harness-engineering/) -- OpenAI on building a product with zero manually-written code
 
-## Prerequisites
+### Prerequisites
+
+#### Terminal: Ghostty
+
+Use [Ghostty](https://ghostty.org). It's the best terminal for Claude Code because it uses native Metal GPU rendering, so it handles the high-volume text output from long AI sessions without lag or memory bloat (~500MB vs ~8GB for two VS Code terminal sessions). Shift+Enter and key bindings work out of the box with no `/terminal-setup` needed, native splits let you run Claude Code alongside a dev server, and it never crashes during extended autonomous runs. Built by Mitchell Hashimoto (Vagrant, Terraform).
+
+```bash
+brew install --cask ghostty
+```
+
+macOS only. On Linux, see the [Ghostty install docs](https://ghostty.org/docs/install). No Windows support yet -- use WezTerm there.
+
+#### Tools
 
 Install core tools via Homebrew:
 
@@ -59,7 +64,7 @@ Node tools:
 npm install -g oxlint agent-browser
 ```
 
-## Shell Setup
+### Shell Setup
 
 Add to `~/.zshrc`:
 
@@ -69,41 +74,25 @@ alias claude-yolo="claude --dangerously-skip-permissions"
 
 `--dangerously-skip-permissions` bypasses all permission prompts. This is the recommended way to run Claude Code for maximum throughput -- pair it with sandboxing (below).
 
-## Fast Mode
+### Settings
 
-`/fast` toggles fast mode. Same Opus 4.6 model, ~2.5x faster output, 6x the cost per token. Leave it off by default.
+Copy `settings.json` to `~/.claude/settings.json` (or merge entries into your existing file). The hooks described in the [Hooks](#hooks) section are defined in this file.
 
-The only time fast mode is worth it is **tight interactive loops** -- you're debugging live, iterating on output, and every second of latency costs you focus. If you're about to kick off an autonomous run (`/fix-issue`, a swarm, anything you walk away from), turn it off first. The agent doesn't benefit from lower latency; you're just burning money.
+#### Statusline
 
-If you do use it, enable it at session start. Toggling it on mid-conversation reprices your entire context at fast-mode rates and invalidates prompt cache.
+A two-line status bar showing repo context, git branch, lines changed, model name, cost, session time, context window remaining, and cache hit rate.
 
-## Sandboxing
+Copy the script:
 
-At Trail of Bits we run Claude Code in bypass-permissions mode (`--dangerously-skip-permissions`). This means you need to understand your sandboxing options -- the agent will execute commands without asking, so the sandbox is what keeps it from doing damage.
+```bash
+mkdir -p ~/.claude
+cp scripts/statusline.sh ~/.claude/statusline.sh
+chmod +x ~/.claude/statusline.sh
+```
 
-### Built-in sandbox (`/sandbox`)
+The `statusLine` entry in `settings.json` points to this script. Requires `jq`.
 
-Claude Code has a native sandbox that provides filesystem and network isolation using OS-level primitives (Seatbelt on macOS, bubblewrap on Linux). Enable it by typing `/sandbox` in a session. In auto-allow mode, Bash commands that stay within sandbox boundaries run without permission prompts.
-
-**Default behavior:** The agent can write only to the current working directory and its subdirectories, but it can **read the entire filesystem** (except certain denied directories). Network access is restricted to explicitly allowed domains. This means the sandbox protects your system from modification, but doesn't provide read isolation -- the agent can still read `~/.ssh`, `~/.aws`, etc.
-
-**Hardening reads:** You can restrict read access by adding `Read` deny rules in your [permission settings](https://code.claude.com/docs/en/permissions). For example, denying `Read` on `~/.ssh` prevents the agent from accessing your SSH keys. You can also set `"allowUnsandboxedCommands": false` in sandbox settings to prevent the agent from escaping the sandbox entirely.
-
-See the [official sandboxing docs](https://code.claude.com/docs/en/sandboxing) for the full configuration reference.
-
-### Devcontainer
-
-For full read and write isolation, use a devcontainer. The agent runs in a container with only the project files mounted -- it has no access to your host filesystem, SSH keys, cloud credentials, or anything else outside the container.
-
-- [trailofbits/claude-code-devcontainer](https://github.com/trailofbits/claude-code-devcontainer) -- preconfigured devcontainer with VS Code integration, Claude Code pre-installed, and common development tools
-
-### Remote droplets
-
-For complete isolation from your local machine, run the agent on a disposable cloud instance:
-
-- [trailofbits/dropkit](https://github.com/trailofbits/dropkit) -- CLI tool for managing DigitalOcean droplets with automated setup, SSH config, and Tailscale VPN. Create a droplet, SSH in, run Claude Code, destroy it when done.
-
-## Global CLAUDE.md
+### Global CLAUDE.md
 
 The global `CLAUDE.md` file at `~/.claude/CLAUDE.md` sets default instructions for every Claude Code session. It defines code quality limits, tooling preferences, workflow conventions, and skill triggers.
 
@@ -115,25 +104,43 @@ cp claude-md-template.md ~/.claude/CLAUDE.md
 
 Review and customize it for your own preferences. The template is opinionated -- it assumes specific tools (`ruff`, `ty`, `oxlint`, `cargo clippy`, etc.) and enforces hard limits on function length, complexity, and line width.
 
-## Continuous Improvement
+## Configuration
 
-### Keep history longer
+### Fast Mode
 
-By default Claude Code deletes conversation history after 30 days. Increase this so `/insights` and your own review have more data to work with:
+`/fast` toggles fast mode. Same Opus 4.6 model, ~2.5x faster output, 6x the cost per token. Leave it off by default.
 
-Add to `~/.claude/settings.json`:
+The only time fast mode is worth it is **tight interactive loops** -- you're debugging live, iterating on output, and every second of latency costs you focus. If you're about to kick off an autonomous run (`/fix-issue`, a swarm, anything you walk away from), turn it off first. The agent doesn't benefit from lower latency; you're just burning money.
 
-```json
-{
-  "cleanupPeriodDays": 365
-}
-```
+If you do use it, enable it at session start. Toggling it on mid-conversation reprices your entire context at fast-mode rates and invalidates prompt cache.
 
-### Run /insights weekly
+### Sandboxing
 
-The `/insights` command analyzes your recent sessions and surfaces patterns -- what's working, what's failing, where you're spending time. Run it once a week to catch blind spots before they become habits.
+At Trail of Bits we run Claude Code in bypass-permissions mode (`--dangerously-skip-permissions`). This means you need to understand your sandboxing options -- the agent will execute commands without asking, so the sandbox is what keeps it from doing damage.
 
-## Hooks
+#### Built-in sandbox (`/sandbox`)
+
+Claude Code has a native sandbox that provides filesystem and network isolation using OS-level primitives (Seatbelt on macOS, bubblewrap on Linux). Enable it by typing `/sandbox` in a session. In auto-allow mode, Bash commands that stay within sandbox boundaries run without permission prompts.
+
+**Default behavior:** The agent can write only to the current working directory and its subdirectories, but it can **read the entire filesystem** (except certain denied directories). Network access is restricted to explicitly allowed domains. This means the sandbox protects your system from modification, but doesn't provide read isolation -- the agent can still read `~/.ssh`, `~/.aws`, etc.
+
+**Hardening reads:** You can restrict read access by adding `Read` deny rules in your [permission settings](https://code.claude.com/docs/en/permissions). For example, denying `Read` on `~/.ssh` prevents the agent from accessing your SSH keys. You can also set `"allowUnsandboxedCommands": false` in sandbox settings to prevent the agent from escaping the sandbox entirely.
+
+See the [official sandboxing docs](https://code.claude.com/docs/en/sandboxing) for the full configuration reference.
+
+#### Devcontainer
+
+For full read and write isolation, use a devcontainer. The agent runs in a container with only the project files mounted -- it has no access to your host filesystem, SSH keys, cloud credentials, or anything else outside the container.
+
+- [trailofbits/claude-code-devcontainer](https://github.com/trailofbits/claude-code-devcontainer) -- preconfigured devcontainer with VS Code integration, Claude Code pre-installed, and common development tools
+
+#### Remote droplets
+
+For complete isolation from your local machine, run the agent on a disposable cloud instance:
+
+- [trailofbits/dropkit](https://github.com/trailofbits/dropkit) -- CLI tool for managing DigitalOcean droplets with automated setup, SSH config, and Tailscale VPN. Create a droplet, SSH in, run Claude Code, destroy it when done.
+
+### Hooks
 
 Hooks are shell commands (or LLM prompts) that fire at specific points in Claude Code's lifecycle. They are the primary mechanism for **policy enforcement** -- shaping what the agent does and doesn't do.
 
@@ -141,7 +148,7 @@ Hooks are not a security boundary. A determined attacker or a sufficiently creat
 
 Full reference: [Hooks documentation](https://code.claude.com/docs/en/hooks)
 
-### Hook events
+#### Hook events
 
 | Event | When it fires | Can block? |
 |-------|---------------|------------|
@@ -154,7 +161,7 @@ Full reference: [Hooks documentation](https://code.claude.com/docs/en/hooks)
 | `TaskCompleted` | When a task is marked complete | Yes |
 | `TeammateIdle` | When a teammate is about to idle | Yes |
 
-### Exit codes
+#### Exit codes
 
 | Exit code | Behavior |
 |-----------|----------|
@@ -162,7 +169,7 @@ Full reference: [Hooks documentation](https://code.claude.com/docs/en/hooks)
 | 1 | Error, non-blocking (stderr shown in verbose mode) |
 | 2 | Blocking error (stderr fed back to Claude as error message) |
 
-### Examples
+#### Examples
 
 The `settings.json` in this repo includes two `PreToolUse` hooks on the `Bash` tool:
 
@@ -193,7 +200,7 @@ Here is a more interesting example. Claude Code has an undocumented `EnterPlanMo
 
 The agent tries to call `EnterPlanMode`, the hook fires, exit code 2 blocks the call, and the stderr message tells Claude to proceed without planning. No code change, no SDK modification -- just a hook that injects the right guidance at the right moment.
 
-### Philosophy
+#### Philosophy
 
 The mental model: hooks are a way to talk to the LLM at decision points it wouldn't otherwise pause at. Every `PreToolUse` hook is a chance to say "stop, think about this" or "don't do that, do this instead." Every `PostToolUse` hook is a chance to say "now that you did that, here's what you should know." Every `Stop` hook is a chance to say "you're not done yet."
 
@@ -205,29 +212,29 @@ Use hooks for:
 - **Enforcing workflow conventions** (require tests pass before marking tasks complete)
 - **Adapting agent behavior** without modifying the agent itself (Agent SDK, MCP integrations)
 
-## Settings
+### Continuous Improvement
 
-Copy `settings.json` to `~/.claude/settings.json` (or merge entries into your existing file). The hooks described above are defined in this file.
+#### Keep history longer
 
-### Statusline
+By default Claude Code deletes conversation history after 30 days. Increase this so `/insights` and your own review have more data to work with:
 
-A two-line status bar showing repo context, git branch, lines changed, model name, cost, session time, context window remaining, and cache hit rate.
+Add to `~/.claude/settings.json`:
 
-Copy the script:
-
-```bash
-mkdir -p ~/.claude
-cp scripts/statusline.sh ~/.claude/statusline.sh
-chmod +x ~/.claude/statusline.sh
+```json
+{
+  "cleanupPeriodDays": 365
+}
 ```
 
-The `statusLine` entry in `settings.json` points to this script. Requires `jq`.
+#### Run /insights weekly
 
-## Plugins and Skills
+The `/insights` command analyzes your recent sessions and surfaces patterns -- what's working, what's failing, where you're spending time. Run it once a week to catch blind spots before they become habits.
+
+### Plugins and Skills
 
 Claude Code's capabilities come from plugins, which provide skills (reusable workflows), agents (specialized subagents), and commands (slash commands). Plugins are distributed through marketplaces.
 
-### Trail of Bits marketplaces
+#### Trail of Bits marketplaces
 
 Install the three Trail of Bits marketplaces:
 
@@ -245,7 +252,7 @@ claude plugins install skills-curated@trailofbits-curated
 
 For external marketplaces (Anthropic official, superpowers, compound-engineering, etc.), see [skills-curated](https://github.com/trailofbits/skills-curated) -- it maintains the approved list and install scripts.
 
-### Publishing skills
+#### Publishing skills
 
 Where to publish depends on the audience:
 
@@ -253,13 +260,13 @@ Where to publish depends on the audience:
 - **Internal to Trail of Bits** -- submit a PR to [trailofbits/skills-internal](https://github.com/trailofbits/skills-internal).
 - **Third-party skill you want approved** -- submit a PR to [trailofbits/skills-curated](https://github.com/trailofbits/skills-curated) with attribution to the original source. Every PR gets code review.
 
-### Writing custom skills
+#### Writing custom skills
 
 When you find yourself repeating the same multi-step workflow, extract it into a skill. Read Anthropic's [official skills documentation](https://code.claude.com/docs/en/skills) for the full reference on frontmatter fields, supporting files, subagent execution, and dynamic context injection.
 
 The short version: create `~/.claude/skills/my-skill/SKILL.md` with YAML frontmatter (`name`, `description`, `allowed-tools`) and markdown instructions. Test with `/my-skill`. Be specific in the `description` so Claude knows when to activate it.
 
-## MCP Servers
+### MCP Servers
 
 Everyone at Trail of Bits should set up at least **Context7** and **Exa** as global MCP servers. Granola is a useful third if you use it for meeting notes.
 
@@ -269,24 +276,26 @@ Everyone at Trail of Bits should set up at least **Context7** and **Exa** as glo
 | Exa | Web and code search (see [Web Browsing](#web-browsing)) | `EXA_API_KEY` env var ([get one here](https://exa.ai)) |
 | Granola | Meeting notes and transcripts | Granola app with paid plan |
 
-### Setup
+#### Setup
 
 MCP servers are configured in `.mcp.json` files. Claude Code merges configs from two locations:
 
 - **`~/.mcp.json`** -- global servers available in every session
 - **`.mcp.json` in the project root** -- project-specific servers
 
-Copy the `.mcp.json` from this repo to `~/.mcp.json` for global availability. Replace `your-exa-api-key-here` with your actual key, or remove the `exa` entry if you don't have one. Add project-specific MCP servers (e.g., a local database tool) to the project's `.mcp.json`.
+Copy `mcp-template.json` from this repo to `~/.mcp.json` for global availability. Replace `your-exa-api-key-here` with your actual key, or remove the `exa` entry if you don't have one. Add project-specific MCP servers (e.g., a local database tool) to the project's `.mcp.json`.
 
-## Web Browsing
+## Usage
+
+### Web Browsing
 
 Claude Code has three ways to interact with the web.
 
-### Exa AI (MCP)
+#### Exa AI (MCP)
 
 Semantic web search that returns clean, LLM-optimized text. Unlike the built-in `WebSearch` tool (which returns search result links that Claude then has to fetch and parse), Exa returns the actual content pre-extracted and formatted for LLM consumption. This saves context window and produces more relevant results. Your CLAUDE.md can instruct Claude to prefer Exa over `WebSearch`.
 
-### agent-browser
+#### agent-browser
 
 Headless browser automation via CLI. Runs its own Chromium instance -- it does **not** share your Chrome profile, cookies, or login sessions. This means it can't access authenticated pages (Google Docs, internal dashboards, etc.) without logging in from scratch. What it excels at is context efficiency: the snapshot/ref system (`@e1`, `@e2`) uses ~93% less context than sending full accessibility trees, so the agent can navigate complex multi-page workflows without exhausting its context window. Also supports video recording and parallel sessions.
 
@@ -298,11 +307,11 @@ agent-browser fill @e2 "text"   # Fill input
 agent-browser screenshot        # Capture screenshot
 ```
 
-### Claude in Chrome (MCP)
+#### Claude in Chrome (MCP)
 
 Browser automation via the [Claude in Chrome](https://chromewebstore.google.com/detail/claude-in-chrome/afnknkaociebljpilnhfkoigcfpaihih) extension. Operates inside your actual Chrome browser, so it has access to your existing login sessions, cookies, and extensions. This is the only option that can interact with authenticated pages (Gmail, Google Docs, Jira, internal tools) without re-authenticating. The tradeoff is that it uses screenshots and accessibility trees for page understanding, which consumes more context than agent-browser's ref system.
 
-### When to use which
+#### When to use which
 
 | Need | Use |
 |------|-----|
@@ -312,7 +321,7 @@ Browser automation via the [Claude in Chrome](https://chromewebstore.google.com/
 | Record a video of browser actions | agent-browser |
 | Inspect visual layout or take screenshots for analysis | Claude in Chrome |
 
-## Local Models
+### Local Models
 
 Use [LM Studio](https://lmstudio.ai) to run local LLMs with Claude Code. Set two environment variables to point Claude Code at the local server:
 
@@ -345,11 +354,11 @@ Additional environment variables for model overrides:
 | `CLAUDE_CODE_SUBAGENT_MODEL` | Model for subagent tasks |
 | `CLAUDE_CODE_DISABLE_NONESSENTIAL_TRAFFIC` | Set to `1` to disable telemetry |
 
-## Example Commands
+### Example Commands
 
 Custom slash commands are markdown files that define reusable workflows. Below are two examples you can adapt. Save them as `.claude/commands/<name>.md` in your project or `~/.claude/commands/<name>.md` globally.
 
-### Review PR
+#### Review PR
 
 ```markdown
 # Review and Fix PR
@@ -414,7 +423,7 @@ Add a comment on PR #$PR_NUMBER summarizing what was done:
 - Confirmation that the quality pipeline passes
 ```
 
-### Fix Issue
+#### Fix Issue
 
 ```markdown
 # Fix GitHub Issue
