@@ -40,7 +40,7 @@ Before configuring anything, read these to understand the context for why this s
 
 #### Terminal: Ghostty
 
-Use [Ghostty](https://ghostty.org). It's the best terminal for Claude Code because it uses native Metal GPU rendering, so it handles the high-volume text output from long AI sessions without lag or memory bloat (~500MB vs ~8GB for two VS Code terminal sessions). Shift+Enter and key bindings work out of the box with no `/terminal-setup` needed, native splits let you run Claude Code alongside a dev server, and it never crashes during extended autonomous runs. Built by Mitchell Hashimoto (Vagrant, Terraform).
+Use [Ghostty](https://ghostty.org). It's the best terminal for Claude Code because it uses native Metal GPU rendering, so it handles the high-volume text output from long AI sessions without lag or memory bloat (~500MB vs ~8GB for two VS Code terminal sessions). Shift+Enter and key bindings work out of the box with no `/terminal-setup` needed, built-in split panes (Cmd+D / Cmd+Shift+D) let you run Claude Code alongside a dev server without tmux, and it never crashes during extended autonomous runs.
 
 ```bash
 brew install --cask ghostty
@@ -92,6 +92,7 @@ alias claude-yolo="claude --dangerously-skip-permissions"
 
 Copy `settings.json` to `~/.claude/settings.json` (or merge entries into your existing file). The template includes:
 
+- **`permissions`** -- deny rules that block reading credentials/secrets and editing shell config (see [Sandboxing](#sandboxing))
 - **`cleanupPeriodDays: 365`** -- keeps conversation history for a year instead of the default 30 days, so `/insights` has more data
 - **`hooks`** -- two `PreToolUse` hooks on Bash that block `rm -rf` and direct push to main (see [Hooks](#hooks))
 - **`statusLine`** -- points to the statusline script (see below)
@@ -161,7 +162,15 @@ Claude Code has a native sandbox that provides filesystem and network isolation 
 
 **Default behavior:** The agent can write only to the current working directory and its subdirectories, but it can **read the entire filesystem** (except certain denied directories). Network access is restricted to explicitly allowed domains. This means the sandbox protects your system from modification, but doesn't provide read isolation -- the agent can still read `~/.ssh`, `~/.aws`, etc.
 
-**Hardening reads:** You can restrict read access by adding `Read` deny rules in your [permission settings](https://code.claude.com/docs/en/permissions). For example, denying `Read` on `~/.ssh` prevents the agent from accessing your SSH keys. You can also set `"allowUnsandboxedCommands": false` in sandbox settings to prevent the agent from escaping the sandbox entirely.
+**Hardening reads:** The `settings.json` template in this repo includes deny rules that block the agent from reading credentials and secrets. These rules apply regardless of whether you use the sandbox:
+
+- **SSH/GPG keys** -- `~/.ssh/**`, `~/.gnupg/**`
+- **Cloud credentials** -- `~/.aws/**`, `~/.azure/**`, `~/.kube/**`, `~/.docker/config.json`
+- **Package registry tokens** -- `~/.npmrc`, `~/.npm/**`, `~/.pypirc`, `~/.gem/credentials`
+- **Git credentials** -- `~/.git-credentials`, `~/.config/gh/**`
+- **Shell config** -- `~/.bashrc`, `~/.zshrc` (edit denied, prevents backdoor planting)
+- **macOS keychain** -- `~/Library/Keychains/**`
+- **Crypto wallets** -- metamask, electrum, exodus, phantom, solflare app data
 
 See the [official sandboxing docs](https://code.claude.com/docs/en/sandboxing) for the full configuration reference.
 
