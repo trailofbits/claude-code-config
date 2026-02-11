@@ -78,6 +78,14 @@ Node tools:
 npm install -g oxlint agent-browser
 ```
 
+LM Studio (for [local models](#local-models)):
+
+```bash
+curl -fsSL https://lmstudio.ai/install.sh | bash
+```
+
+This installs `lms` (the CLI) and `llmster` (the headless daemon). Or install the [LM Studio desktop app](https://lmstudio.ai/download) if you prefer a GUI.
+
 ### Shell Setup
 
 Add to `~/.zshrc`:
@@ -359,11 +367,31 @@ Browser automation via the [Claude in Chrome](https://chromewebstore.google.com/
 
 ### Local Models
 
-Use [LM Studio](https://lmstudio.ai) to run local LLMs with Claude Code. Set two environment variables to point Claude Code at the local server:
+Use [LM Studio](https://lmstudio.ai) to run local LLMs with Claude Code. LM Studio provides an Anthropic-compatible `/v1/messages` endpoint, so Claude Code connects with just a base URL change. On macOS it uses MLX for Apple Silicon-native inference, which is significantly faster than GGUF.
+
+#### Recommended model: Qwen3-Coder-Next (as of February 2026)
+
+[Qwen3-Coder-Next](https://lmstudio.ai/models/qwen3-coder-next) is an 80B mixture-of-experts model with only 3B active parameters, designed specifically for agentic coding. It handles tool use, long-horizon reasoning, and recovery from execution failures. The MLX 4-bit quantization is ~45GB and needs at least 64GB unified memory to load with a usable context window. 96GB or more is comfortable.
+
+Local models move fast. When this recommendation is stale, check the [LM Studio featured models page](https://lmstudio.ai/models) and pick the top coding model that fits in your memory as an MLX 4-bit quantization.
+
+#### Setup
+
+Download and start serving the model:
+
+```bash
+lms get lmstudio-community/Qwen3-Coder-Next-MLX-4bit
+lms load lmstudio-community/Qwen3-Coder-Next-MLX-4bit --gpu max
+lms server start
+```
+
+In LM Studio's model settings, set context length to at least 25K tokens (Claude Code is context-heavy). Use the recommended sampling parameters: temperature 1.0, top-p 0.95, top-k 40, min-p 0.01.
+
+#### Running Claude Code locally
 
 ```bash
 ANTHROPIC_BASE_URL=http://localhost:1234 \
-ANTHROPIC_API_KEY=lmstudio \
+ANTHROPIC_AUTH_TOKEN=lmstudio \
 claude
 ```
 
@@ -372,18 +400,18 @@ Or add a shell function to `~/.zshrc`:
 ```bash
 local-claude() {
   ANTHROPIC_BASE_URL=http://localhost:1234 \
-  ANTHROPIC_API_KEY=local \
+  ANTHROPIC_AUTH_TOKEN=lmstudio \
   CLAUDE_CODE_DISABLE_NONESSENTIAL_TRAFFIC=1 \
   claude "$@"
 }
 ```
 
-Additional environment variables for model overrides:
+#### Environment variables
 
 | Variable | Purpose |
 |----------|---------|
 | `ANTHROPIC_BASE_URL` | API endpoint (e.g., `http://localhost:1234`) |
-| `ANTHROPIC_API_KEY` | API key (any string for local servers) |
+| `ANTHROPIC_AUTH_TOKEN` | API key (any string for local servers) |
 | `ANTHROPIC_DEFAULT_SONNET_MODEL` | Default model for most operations |
 | `ANTHROPIC_DEFAULT_OPUS_MODEL` | Model for opus-tier tasks |
 | `ANTHROPIC_DEFAULT_HAIKU_MODEL` | Model for summarization tasks |
