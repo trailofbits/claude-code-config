@@ -60,20 +60,29 @@ alias claude-yolo="claude --dangerously-skip-permissions"
 
 ## Sandboxing
 
-Bypass-permissions mode should be paired with a sandbox so the agent can't escape the project directory or affect the host system.
+At Trail of Bits we run Claude Code in bypass-permissions mode (`--dangerously-skip-permissions`). This means you need to understand your sandboxing options -- the agent will execute commands without asking, so the sandbox is what keeps it from doing damage.
 
 ### Built-in sandbox (`/sandbox`)
 
-Claude Code has a native sandbox that provides filesystem and network isolation using OS-level primitives (Seatbelt on macOS, bubblewrap on Linux). Enable it by typing `/sandbox` in a session. In auto-allow mode, Bash commands that stay within sandbox boundaries run without permission prompts. Commands that need access outside the sandbox fall back to the normal permission flow.
+Claude Code has a native sandbox that provides filesystem and network isolation using OS-level primitives (Seatbelt on macOS, bubblewrap on Linux). Enable it by typing `/sandbox` in a session. In auto-allow mode, Bash commands that stay within sandbox boundaries run without permission prompts.
 
-See the [official sandboxing docs](https://code.claude.com/docs/en/sandboxing) for configuration options.
+**Default behavior:** The agent can write only to the current working directory and its subdirectories, but it can **read the entire filesystem** (except certain denied directories). Network access is restricted to explicitly allowed domains. This means the sandbox protects your system from modification, but doesn't provide read isolation -- the agent can still read `~/.ssh`, `~/.aws`, etc.
 
-### External sandboxes
+**Hardening reads:** You can restrict read access by adding `Read` deny rules in your [permission settings](https://code.claude.com/docs/en/permissions). For example, denying `Read` on `~/.ssh` prevents the agent from accessing your SSH keys. You can also set `"allowUnsandboxedCommands": false` in sandbox settings to prevent the agent from escaping the sandbox entirely.
 
-For stronger isolation or CI/headless use:
+See the [official sandboxing docs](https://code.claude.com/docs/en/sandboxing) for the full configuration reference.
 
-- [trailofbits/claude-code-devcontainer](https://github.com/trailofbits/claude-code-devcontainer) -- devcontainer-based sandbox with full VS Code integration
-- [trailofbits/dropkit](https://github.com/trailofbits/dropkit) -- lightweight macOS sandbox using `sandbox-exec`
+### Devcontainer
+
+For full read and write isolation, use a devcontainer. The agent runs in a container with only the project files mounted -- it has no access to your host filesystem, SSH keys, cloud credentials, or anything else outside the container.
+
+- [trailofbits/claude-code-devcontainer](https://github.com/trailofbits/claude-code-devcontainer) -- preconfigured devcontainer with VS Code integration, Claude Code pre-installed, and common development tools
+
+### Remote droplets
+
+For complete isolation from your local machine, run the agent on a disposable cloud instance:
+
+- [trailofbits/dropkit](https://github.com/trailofbits/dropkit) -- CLI tool for managing DigitalOcean droplets with automated setup, SSH config, and Tailscale VPN. Create a droplet, SSH in, run Claude Code, destroy it when done.
 
 ## Global CLAUDE.md
 
