@@ -18,10 +18,11 @@ Reference setup for Claude Code at Trail of Bits. Not a plugin -- just documenta
 - [Plugins and Skills](#plugins-and-skills)
 - [MCP Servers](#mcp-servers)
 - [Fast Mode](#fast-mode)
+- [Local Models](#local-models)
 
 **[Usage](#usage)**
+- [Context Management](#context-management)
 - [Web Browsing](#web-browsing)
-- [Local Models](#local-models)
 - [Example Commands](#example-commands)
 
 ## Getting Started
@@ -96,6 +97,19 @@ alias claude-yolo="claude --dangerously-skip-permissions"
 
 `--dangerously-skip-permissions` bypasses all permission prompts. This is the recommended way to run Claude Code for maximum throughput -- pair it with sandboxing (below).
 
+If you're using [local models](#local-models), also add:
+
+```bash
+claude-local() {
+  ANTHROPIC_BASE_URL=http://localhost:1234 \
+  ANTHROPIC_AUTH_TOKEN=lmstudio \
+  CLAUDE_CODE_DISABLE_NONESSENTIAL_TRAFFIC=1 \
+  claude "$@"
+}
+```
+
+`claude-local` wraps `claude` with the local server env vars and disables telemetry pings that won't reach Anthropic anyway. Use it anywhere you'd normally run `claude`.
+
 ### Settings
 
 Copy `settings.json` to `~/.claude/settings.json` (or merge entries into your existing file). The template includes:
@@ -137,6 +151,12 @@ cp claude-md-template.md ~/.claude/CLAUDE.md
 ```
 
 Review and customize it for your own preferences. The template is opinionated -- it assumes specific tools (`ruff`, `ty`, `oxlint`, `cargo clippy`, etc.) and enforces hard limits on function length, complexity, and line width. For background on how CLAUDE.md files work (hierarchy, auto memory, modular rules, imports), see [Manage Claude's memory](https://code.claude.com/docs/en/memory).
+
+#### Project-level CLAUDE.md
+
+The global file sets defaults; project-level `CLAUDE.md` files at the repo root add project-specific context. A good project CLAUDE.md includes architecture (directory tree, key abstractions), project-specific commands (`make dev`, `make test`), codebase navigation patterns (ast-grep examples for your codebase), domain-specific APIs and gotchas, and testing conventions unique to the project.
+
+For an example of a well-structured project CLAUDE.md, see [crytic/slither's CLAUDE.md](https://github.com/crytic/slither/blob/master/CLAUDE.md). It layers slither-specific context -- SlithIR internals, detector traversal patterns, type handling pitfalls -- on top of the same global standards from this repo.
 
 ### Continuous Improvement
 
@@ -361,7 +381,67 @@ The only time fast mode is worth it is **tight interactive loops** -- you're deb
 
 If you do use it, enable it at session start. Toggling it on mid-conversation reprices your entire context at fast-mode rates and invalidates prompt cache. See the [fast mode docs](https://code.claude.com/docs/en/fast-mode) for details.
 
+### Local Models
+
+Use [LM Studio](https://lmstudio.ai) to run local LLMs with Claude Code. LM Studio provides an Anthropic-compatible `/v1/messages` endpoint, so Claude Code connects with just a base URL change. On macOS it uses MLX for Apple Silicon-native inference, which is significantly faster than GGUF.
+
+#### Recommended model: Qwen3-Coder-Next (as of February 2026)
+
+[Qwen3-Coder-Next](https://lmstudio.ai/models/qwen3-coder-next) is an 80B mixture-of-experts model with only 3B active parameters, designed specifically for agentic coding. It handles tool use, long-horizon reasoning, and recovery from execution failures. The MLX 4-bit quantization is ~45GB and needs at least 64GB unified memory to load with a usable context window. 96GB or more is comfortable.
+
+Local models move fast. When this recommendation is stale, check the [LM Studio featured models page](https://lmstudio.ai/models) and pick the top coding model that fits in your memory as an MLX 4-bit quantization.
+
+#### Setup
+
+Download, load, and serve -- all from the CLI:
+
+```bash
+lms get lmstudio-community/Qwen3-Coder-Next-MLX-4bit -y
+lms load lmstudio-community/Qwen3-Coder-Next-MLX-4bit --context-length 32768 --gpu max -y
+lms server start
+```
+
+`--context-length 32768` allocates a 32K context window at load time. Claude Code is context-heavy, so don't go below 25K. Sampling parameters (temperature, top-p, etc.) don't need to be configured on the server -- Claude Code sends its own in each API request.
+
+#### Connecting
+
+Point Claude Code at LM Studio by setting the base URL and an auth token (any string works for local servers):
+
+```bash
+ANTHROPIC_BASE_URL=http://localhost:1234 \
+ANTHROPIC_AUTH_TOKEN=lmstudio \
+claude
+```
+
+Or use the `claude-local` shell function from [Shell Setup](#shell-setup) to avoid typing the env vars every time.
+
+#### Environment variables
+
+| Variable | Purpose |
+|----------|---------|
+| `ANTHROPIC_BASE_URL` | API endpoint (e.g., `http://localhost:1234`) |
+| `ANTHROPIC_AUTH_TOKEN` | API key (any string for local servers) |
+| `ANTHROPIC_DEFAULT_SONNET_MODEL` | Default model for most operations |
+| `ANTHROPIC_DEFAULT_OPUS_MODEL` | Model for opus-tier tasks |
+| `ANTHROPIC_DEFAULT_HAIKU_MODEL` | Model for summarization tasks |
+| `CLAUDE_CODE_SUBAGENT_MODEL` | Model for subagent tasks |
+| `CLAUDE_CODE_DISABLE_NONESSENTIAL_TRAFFIC` | Set to `1` to disable telemetry |
+
 ## Usage
+
+### Context Management
+
+The context window is finite and irreplaceable mid-session. Every file read, tool call, and conversation turn consumes it. When it fills up, Claude auto-compacts -- summarizing the conversation to free space. Auto-compaction works, but it's lossy: subtle decisions, error details, and the thread of reasoning degrade each time. The best strategy is to avoid needing it.
+
+**Scope work to one session.** Each feature, bug fix, or investigation should fit within a single context window. If a task is too large, break it into pieces and run each in a fresh session. This is the single most effective thing you can do for quality. A session that stays within its context budget produces better code than one that compacts three times to limp across the finish line. When you notice context running low (check the statusline -- green >50%, yellow >20%, red below), it's time to wrap up and start a new session, not push through.
+
+**Prefer `/clear` over `/compact`.** `/clear` wipes the conversation and starts fresh. `/compact` summarizes and continues. Default to `/clear` between tasks. `/compact` is useful when you're mid-task and need to reclaim space without losing your place, but each compaction is a lossy compression -- details get dropped, and the model's understanding of your intent degrades slightly. Two compactions in a session is a sign the task was too large. `/clear` has no information loss because there's nothing to lose -- your CLAUDE.md reloads, git state is fresh, and the agent re-reads whatever files it needs. The overhead of re-reading a few files is trivial compared to the quality cost of working with degraded context.
+
+**Use checkpoints to recover, not to prevent.** Checkpoints (`Esc Esc` or `/rewind`) let you restore code and conversation to any previous prompt in the session. They're your undo system -- if Claude goes down a wrong path, rewind to before it diverged instead of trying to talk it back. The "Summarize from here" option in the rewind menu is a more surgical alternative to `/compact`: instead of compressing everything, you keep early context intact and only summarize the part that's eating space (like a verbose debugging tangent). This preserves your initial instructions at full fidelity.
+
+**Offload research to subagents.** Subagents (Task tool, custom agents) each get their own context window. The main session only sees the subagent's summary, not its full working context. Use this deliberately: when a task requires reading a lot of documentation, exploring unfamiliar code, or doing research that would bloat your main session, delegate it to a subagent. The main session stays lean and focused on implementation while subagents handle the context-heavy exploration.
+
+**Put stable context in CLAUDE.md, not the conversation.** Project architecture, coding standards, tool preferences, workflow conventions -- anything reusable goes in CLAUDE.md. It loads automatically every session and survives `/clear`. Don't put session-specific state there. If you need to pass context between sessions, commit your work, write a brief plan to a file, `/clear`, and start the next session by pointing Claude at that file. Git is your cross-session memory -- not CLAUDE.md, not compaction summaries.
 
 ### Web Browsing
 
@@ -396,63 +476,6 @@ Browser automation via the [Claude in Chrome](https://chromewebstore.google.com/
 | Interact with authenticated/internal pages | Claude in Chrome |
 | Record a video of browser actions | agent-browser |
 | Inspect visual layout or take screenshots for analysis | Claude in Chrome |
-
-### Local Models
-
-Use [LM Studio](https://lmstudio.ai) to run local LLMs with Claude Code. LM Studio provides an Anthropic-compatible `/v1/messages` endpoint, so Claude Code connects with just a base URL change. On macOS it uses MLX for Apple Silicon-native inference, which is significantly faster than GGUF.
-
-#### Recommended model: Qwen3-Coder-Next (as of February 2026)
-
-[Qwen3-Coder-Next](https://lmstudio.ai/models/qwen3-coder-next) is an 80B mixture-of-experts model with only 3B active parameters, designed specifically for agentic coding. It handles tool use, long-horizon reasoning, and recovery from execution failures. The MLX 4-bit quantization is ~45GB and needs at least 64GB unified memory to load with a usable context window. 96GB or more is comfortable.
-
-Local models move fast. When this recommendation is stale, check the [LM Studio featured models page](https://lmstudio.ai/models) and pick the top coding model that fits in your memory as an MLX 4-bit quantization.
-
-#### Setup
-
-Download, load, and serve -- all from the CLI:
-
-```bash
-lms get lmstudio-community/Qwen3-Coder-Next-MLX-4bit -y
-lms load lmstudio-community/Qwen3-Coder-Next-MLX-4bit --context-length 32768 --gpu max -y
-lms server start
-```
-
-`--context-length 32768` allocates a 32K context window at load time. Claude Code is context-heavy, so don't go below 25K. Sampling parameters (temperature, top-p, etc.) don't need to be configured on the server -- Claude Code sends its own in each API request.
-
-#### Running Claude Code locally
-
-Point Claude Code at LM Studio by setting the base URL and an auth token (any string works for local servers):
-
-```bash
-ANTHROPIC_BASE_URL=http://localhost:1234 \
-ANTHROPIC_AUTH_TOKEN=lmstudio \
-claude
-```
-
-To avoid typing that every time, add to `~/.zshrc`:
-
-```bash
-claude-local() {
-  ANTHROPIC_BASE_URL=http://localhost:1234 \
-  ANTHROPIC_AUTH_TOKEN=lmstudio \
-  CLAUDE_CODE_DISABLE_NONESSENTIAL_TRAFFIC=1 \
-  claude "$@"
-}
-```
-
-`claude-local` wraps `claude` with the local server env vars and disables telemetry pings that won't reach Anthropic anyway. Use it anywhere you'd normally run `claude`.
-
-#### Environment variables
-
-| Variable | Purpose |
-|----------|---------|
-| `ANTHROPIC_BASE_URL` | API endpoint (e.g., `http://localhost:1234`) |
-| `ANTHROPIC_AUTH_TOKEN` | API key (any string for local servers) |
-| `ANTHROPIC_DEFAULT_SONNET_MODEL` | Default model for most operations |
-| `ANTHROPIC_DEFAULT_OPUS_MODEL` | Model for opus-tier tasks |
-| `ANTHROPIC_DEFAULT_HAIKU_MODEL` | Model for summarization tasks |
-| `CLAUDE_CODE_SUBAGENT_MODEL` | Model for subagent tasks |
-| `CLAUDE_CODE_DISABLE_NONESSENTIAL_TRAFFIC` | Set to `1` to disable telemetry |
 
 ### Example Commands
 
