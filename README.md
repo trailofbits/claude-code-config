@@ -78,6 +78,14 @@ Node tools:
 npm install -g oxlint agent-browser
 ```
 
+LM Studio (for [local models](#local-models)):
+
+```bash
+curl -fsSL https://lmstudio.ai/install.sh | bash
+```
+
+This installs `lms` (the CLI) and `llmster` (the headless daemon). Or install the [LM Studio desktop app](https://lmstudio.ai/download) if you prefer a GUI.
+
 ### Shell Setup
 
 Add to `~/.zshrc`:
@@ -361,17 +369,13 @@ Browser automation via the [Claude in Chrome](https://chromewebstore.google.com/
 
 Use [LM Studio](https://lmstudio.ai) to run local LLMs with Claude Code. LM Studio provides an Anthropic-compatible `/v1/messages` endpoint, so Claude Code connects with just a base URL change. On macOS it uses MLX for Apple Silicon-native inference, which is significantly faster than GGUF.
 
-#### Recommended model: Qwen3-Coder-Next
+#### Recommended model: Qwen3-Coder-Next (as of February 2026)
 
 [Qwen3-Coder-Next](https://lmstudio.ai/models/qwen3-coder-next) is an 80B mixture-of-experts model with only 3B active parameters, designed specifically for agentic coding. It handles tool use, long-horizon reasoning, and recovery from execution failures. The MLX 4-bit quantization is ~45GB and needs at least 64GB unified memory to load with a usable context window. 96GB or more is comfortable.
 
+Local models move fast. When this recommendation is stale, check the [LM Studio featured models page](https://lmstudio.ai/models) and pick the top coding model that fits in your memory as an MLX 4-bit quantization.
+
 #### Setup
-
-Install LM Studio, or install `llmster` (the headless daemon) for terminal-only use:
-
-```bash
-curl -fsSL https://lmstudio.ai/install.sh | bash
-```
 
 Download and start serving the model:
 
