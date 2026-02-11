@@ -202,81 +202,56 @@ claude plugins install skills-curated@trailofbits-curated
 
 | Repository | Description |
 |------------|-------------|
-| [trailofbits/skills](https://github.com/trailofbits/skills) | Public skills for security auditing, code review, and development workflows |
-| [trailofbits/skills-internal](https://github.com/trailofbits/skills-internal) | Internal skills for Trail of Bits engineers (private) |
-| [trailofbits/skills-curated](https://github.com/trailofbits/skills-curated) | Curated third-party skills and recommended external marketplaces |
+| [trailofbits/skills](https://github.com/trailofbits/skills) | Security auditing, code review, smart contract analysis, reverse engineering, and development workflows. Open source -- contributions welcome. |
+| [trailofbits/skills-internal](https://github.com/trailofbits/skills-internal) | Internal skills: report writing, scoping, recruiting, brand tools, and client-specific workflows. Private to Trail of Bits. |
+| [trailofbits/skills-curated](https://github.com/trailofbits/skills-curated) | Vetted third-party skills and the canonical list of approved external marketplaces. |
 
-For external marketplaces and additional plugins, see [skills-curated](https://github.com/trailofbits/skills-curated) -- it maintains the canonical list of vetted marketplaces and install scripts.
+For external marketplaces (Anthropic official, superpowers, compound-engineering, etc.), see [skills-curated](https://github.com/trailofbits/skills-curated) -- it maintains the approved list and install scripts.
+
+### Publishing skills
+
+Where to publish depends on the audience:
+
+- **Public and open source** -- submit a PR to [trailofbits/skills](https://github.com/trailofbits/skills). See its [CLAUDE.md](https://github.com/trailofbits/skills/blob/main/CLAUDE.md) for authoring guidelines.
+- **Internal to Trail of Bits** -- submit a PR to [trailofbits/skills-internal](https://github.com/trailofbits/skills-internal).
+- **Third-party skill you want approved** -- submit a PR to [trailofbits/skills-curated](https://github.com/trailofbits/skills-curated) with attribution to the original source. Every PR gets code review.
 
 ### Writing custom skills
 
-Skills are the highest-leverage way to encode team knowledge into Claude Code. When you find yourself repeating the same multi-step workflow, extract it into a skill.
+When you find yourself repeating the same multi-step workflow, extract it into a skill. Read Anthropic's [official skills documentation](https://code.claude.com/docs/en/skills) for the full reference on frontmatter fields, supporting files, subagent execution, and dynamic context injection.
 
-A skill is a directory with a `SKILL.md` file:
-
-```
-~/.claude/skills/
-└── my-skill/
-    └── SKILL.md
-```
-
-The `SKILL.md` uses YAML frontmatter for metadata and markdown for instructions:
-
-```markdown
----
-name: my-skill
-description: >-
-  What this skill does and when Claude should use it.
-  Be specific about triggers -- what the user says or
-  what situation should activate this skill.
-allowed-tools:
-  - Read
-  - Write
-  - Bash
----
-
-# My Skill
-
-Step-by-step instructions for Claude to follow.
-Reference files with `{baseDir}/path` for paths
-relative to the skill directory.
-```
-
-Tips for effective skills:
-
-- **Be specific about triggers** -- the `description` field tells Claude when to activate the skill. Vague descriptions lead to skills that never fire or fire at the wrong time.
-- **Include "when NOT to use" guidance** -- negative examples prevent false activations.
-- **Use `allowed-tools` to limit scope** -- a skill that only reads files can't accidentally write to them.
-- **Keep reference data in sibling files** -- put templates, examples, or lookup tables next to `SKILL.md` and reference them with `{baseDir}/filename`.
-- **Test with `/skill-name`** -- invoke the skill directly to verify it works before relying on auto-activation.
-
-For team-wide skills, publish them to a plugin marketplace.
+The short version: create `~/.claude/skills/my-skill/SKILL.md` with YAML frontmatter (`name`, `description`, `allowed-tools`) and markdown instructions. Test with `/my-skill`. Be specific in the `description` so Claude knows when to activate it.
 
 ## MCP Servers
 
-Copy `.mcp.json` to `~/.mcp.json` (or merge into your existing file). This configures Model Context Protocol servers that extend Claude Code's capabilities.
+Everyone at Trail of Bits should set up at least **Context7** and **Exa** as global MCP servers. Granola is a useful third if you use it for meeting notes.
 
 | Server | What it does | Requirements |
 |--------|-------------|--------------|
 | Context7 | Up-to-date library documentation lookup | None (no API key) |
-| Exa | Web and code search (see [Web Browsing](#web-browsing)) | `EXA_API_KEY` environment variable |
+| Exa | Web and code search (see [Web Browsing](#web-browsing)) | `EXA_API_KEY` env var ([get one here](https://exa.ai)) |
 | Granola | Meeting notes and transcripts | Granola app with paid plan |
 
-Replace `your-exa-api-key-here` in `.mcp.json` with your actual Exa API key, or remove the `exa` entry if you don't have one.
+### Setup
+
+MCP servers are configured in `.mcp.json` files. Claude Code merges configs from two locations:
+
+- **`~/.mcp.json`** -- global servers available in every session
+- **`.mcp.json` in the project root** -- project-specific servers
+
+Copy the `.mcp.json` from this repo to `~/.mcp.json` for global availability. Replace `your-exa-api-key-here` with your actual key, or remove the `exa` entry if you don't have one. Add project-specific MCP servers (e.g., a local database tool) to the project's `.mcp.json`.
 
 ## Web Browsing
 
-Claude Code has three ways to interact with the web. They serve different purposes and work well together.
+Claude Code has three ways to interact with the web.
 
 ### Exa AI (MCP)
 
-Web search that returns clean, LLM-ready content. Configured via `.mcp.json` (see [MCP Servers](#mcp-servers)). Best for finding documentation, researching libraries, reading articles, and answering questions about current events. Requires an API key from [exa.ai](https://exa.ai).
-
-Your CLAUDE.md can instruct Claude to prefer Exa over the built-in `WebSearch` tool for higher-quality results.
+Semantic web search that returns clean, LLM-optimized text. Unlike the built-in `WebSearch` tool (which returns search result links that Claude then has to fetch and parse), Exa returns the actual content pre-extracted and formatted for LLM consumption. This saves context window and produces more relevant results. Your CLAUDE.md can instruct Claude to prefer Exa over `WebSearch`.
 
 ### agent-browser
 
-CLI-based browser automation. Install with `npm install -g agent-browser`. Best for form filling, scraping, multi-step web workflows, and tasks that need programmatic control. Supports video recording of sessions and parallel browser instances.
+Headless browser automation via CLI. Runs its own Chromium instance -- it does **not** share your Chrome profile, cookies, or login sessions. This means it can't access authenticated pages (Google Docs, internal dashboards, etc.) without logging in from scratch. What it excels at is context efficiency: the snapshot/ref system (`@e1`, `@e2`) uses ~93% less context than sending full accessibility trees, so the agent can navigate complex multi-page workflows without exhausting its context window. Also supports video recording and parallel sessions.
 
 ```bash
 agent-browser open <url>        # Navigate
@@ -286,13 +261,19 @@ agent-browser fill @e2 "text"   # Fill input
 agent-browser screenshot        # Capture screenshot
 ```
 
-Workflow: open -> snapshot -> interact -> re-snapshot after navigation.
-
 ### Claude in Chrome (MCP)
 
-Browser automation via the [Claude in Chrome](https://chromewebstore.google.com/detail/claude-in-chrome/afnknkaociebljpilnhfkoigcfpaihih) extension. Best for visual inspection, screenshot-based analysis, and interacting with pages that need real browser rendering (SPAs, authenticated sessions, complex UIs). Connects as an MCP server -- no CLI needed.
+Browser automation via the [Claude in Chrome](https://chromewebstore.google.com/detail/claude-in-chrome/afnknkaociebljpilnhfkoigcfpaihih) extension. Operates inside your actual Chrome browser, so it has access to your existing login sessions, cookies, and extensions. This is the only option that can interact with authenticated pages (Gmail, Google Docs, Jira, internal tools) without re-authenticating. The tradeoff is that it uses screenshots and accessibility trees for page understanding, which consumes more context than agent-browser's ref system.
 
-Use agent-browser when you need scriptable, repeatable automation. Use Claude in Chrome when you need to see and reason about what's on the screen.
+### When to use which
+
+| Need | Use |
+|------|-----|
+| Search the web for information | Exa |
+| Automate multi-step workflows on public pages | agent-browser |
+| Interact with authenticated/internal pages | Claude in Chrome |
+| Record a video of browser actions | agent-browser |
+| Inspect visual layout or take screenshots for analysis | Claude in Chrome |
 
 ## Local Models
 
