@@ -1,6 +1,14 @@
-# claude-code-config
+# Trail of Bits Claude Code Config
 
 Reference setup for Claude Code at Trail of Bits. Not a plugin -- just documentation and config files you copy into place.
+
+From any Claude Code session:
+
+```
+/tob-config
+```
+
+This fetches the latest config from GitHub, detects what you already have, and walks you through installing each component. Run it again after updates. To bootstrap it the first time, clone the repo and run `claude`, then `/tob-config` -- it self-installs so future runs work from anywhere.
 
 ## Contents
 
@@ -112,8 +120,12 @@ claude-local() {
 
 ### Settings
 
-Copy `settings.json` to `~/.claude/settings.json` (or merge entries into your existing file). The template includes:
+Copy `settings.json` to `~/.claude/settings.json` (or merge entries into your existing file). The `$schema` key enables autocomplete and validation in editors that support JSON Schema. The template includes:
 
+- **`env`** -- `CLAUDE_CODE_DISABLE_NONESSENTIAL_TRAFFIC` disables all non-essential traffic to Anthropic: Statsig telemetry, Sentry error reporting, feedback surveys, and the `/bug` command. No functional impact. The [admin analytics dashboard](https://code.claude.com/docs/en/analytics) is unaffected -- it's fed by API-level data, not these client-side streams.
+- **`env` (agent teams)** -- `CLAUDE_CODE_EXPERIMENTAL_AGENT_TEAMS` enables [multi-agent teams](https://code.claude.com/docs/en/agent-teams) where one session coordinates multiple teammates with independent context windows. Experimental -- known limitations around session resumption and task coordination.
+- **`enableAllProjectMcpServers: false`** -- this is the default, set explicitly so it doesn't get flipped by accident. Project `.mcp.json` files live in git, so a compromised repo could ship malicious MCP servers.
+- **`alwaysThinkingEnabled: true`** -- persists [extended thinking](https://code.claude.com/docs/en/common-workflows#use-extended-thinking-thinking-mode) across sessions. Toggle per-session with `Option+T`. Adds latency and cost on simple tasks; worth it for complex reasoning.
 - **`permissions`** -- deny rules that block reading credentials/secrets and editing shell config (see [Sandboxing](#sandboxing))
 - **`cleanupPeriodDays: 365`** -- keeps conversation history for a year instead of the default 30 days, so `/insights` has more data
 - **`hooks`** -- two `PreToolUse` hooks on Bash that block `rm -rf` and direct push to main (see [Hooks](#hooks))
