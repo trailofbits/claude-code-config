@@ -46,7 +46,7 @@ Use [Ghostty](https://ghostty.org). It's the best terminal for Claude Code becau
 brew install --cask ghostty
 ```
 
-macOS only. On Linux, see the [Ghostty install docs](https://ghostty.org/docs/install). No Windows support yet -- use WezTerm there.
+macOS only. On Linux, see the [Ghostty install docs](https://ghostty.org/docs/install/binary#linux-(official)). No Windows support yet -- use WezTerm there.
 
 #### Tools
 
