@@ -10,7 +10,6 @@ Reference setup for Claude Code at Trail of Bits. Not a plugin -- just documenta
 - [Shell Setup](#shell-setup)
 - [Settings](#settings)
 - [Global CLAUDE.md](#global-claudemd)
-- [Continuous Improvement](#continuous-improvement)
 
 **[Configuration](#configuration)**
 - [Sandboxing](#sandboxing)
@@ -21,6 +20,7 @@ Reference setup for Claude Code at Trail of Bits. Not a plugin -- just documenta
 - [Local Models](#local-models)
 
 **[Usage](#usage)**
+- [Continuous Improvement](#continuous-improvement)
 - [Context Management](#context-management)
 - [Web Browsing](#web-browsing)
 - [Example Commands](#example-commands)
@@ -157,26 +157,6 @@ Review and customize it for your own preferences. The template is opinionated --
 The global file sets defaults; project-level `CLAUDE.md` files at the repo root add project-specific context. A good project CLAUDE.md includes architecture (directory tree, key abstractions), project-specific commands (`make dev`, `make test`), codebase navigation patterns (ast-grep examples for your codebase), domain-specific APIs and gotchas, and testing conventions unique to the project.
 
 For an example of a well-structured project CLAUDE.md, see [crytic/slither's CLAUDE.md](https://github.com/crytic/slither/blob/master/CLAUDE.md). It layers slither-specific context -- SlithIR internals, detector traversal patterns, type handling pitfalls -- on top of the same global standards from this repo.
-
-### Continuous Improvement
-
-Most people's use of Claude Code plateaus early. You find a workflow that works, repeat it, and never discover what you're leaving on the table. The fix is a deliberate feedback loop: review what happened, adjust your setup, and let the next week benefit from what you learned.
-
-#### Keep history longer
-
-By default Claude Code deletes conversation history after 30 days. Increase this so `/insights` and your own review have more data to work with:
-
-Add to `~/.claude/settings.json`:
-
-```json
-{
-  "cleanupPeriodDays": 365
-}
-```
-
-#### Run /insights weekly
-
-`/insights` analyzes your recent sessions and surfaces patterns -- what's working, what's failing, where you're spending time. Run it once a week. When it tells you something useful, act on it: add a rule to your CLAUDE.md, write a hook to block a mistake you keep making, extract a repeated workflow into a skill. Each adjustment compounds. After a few weeks your setup is meaningfully different from the defaults, tuned to how you actually work.
 
 ## Configuration
 
@@ -429,9 +409,19 @@ Or use the `claude-local` shell function from [Shell Setup](#shell-setup) to avo
 
 ## Usage
 
+Read Anthropic's [Best practices for Claude Code](https://code.claude.com/docs/en/best-practices) before anything in this section. It's the single most important resource for getting good results. Everything below builds on it.
+
+### Continuous Improvement
+
+Most people's use of Claude Code plateaus early. You find a workflow that works, repeat it, and never discover what you're leaving on the table. The fix is a deliberate feedback loop: review what happened, adjust your setup, and let the next week benefit from what you learned.
+
+Run `/insights` once a week. It analyzes your recent sessions and surfaces patterns -- what's working, what's failing, where you're spending time. When it tells you something useful, act on it: add a rule to your CLAUDE.md, write a hook to block a mistake you keep making, extract a repeated workflow into a skill. Each adjustment compounds. After a few weeks your setup is meaningfully different from the defaults, tuned to how you actually work.
+
 ### Context Management
 
 The context window is finite and irreplaceable mid-session. Every file read, tool call, and conversation turn consumes it. When it fills up, Claude auto-compacts -- summarizing the conversation to free space. Auto-compaction works, but it's lossy: subtle decisions, error details, and the thread of reasoning degrade each time. The best strategy is to avoid needing it.
+
+#### Keeping sessions clean
 
 **Scope work to one session.** Each feature, bug fix, or investigation should fit within a single context window. If a task is too large, break it into pieces and run each in a fresh session. This is the single most effective thing you can do for quality.
 
@@ -441,9 +431,11 @@ A session that stays within its context budget produces better code than one tha
 
 `/compact` is useful when you're mid-task and need to reclaim space without losing your place, but each compaction is a lossy compression -- details get dropped, and the model's understanding of your intent degrades slightly. Two compactions in a session is a sign the task was too large. `/clear` has no information loss because there's nothing to lose -- your CLAUDE.md reloads, git state is fresh, and the agent re-reads whatever files it needs. When you do use `/compact`, pass focus instructions to steer the summary: `/compact Focus on the auth refactor` preserves what matters and sheds the rest.
 
-**Cut your losses after two corrections.** If you've corrected Claude twice on the same issue and it's still wrong, the context is polluted with failed approaches. Don't keep pushing -- `/clear` and write a better initial prompt that incorporates what you learned. A clean session with a precise prompt almost always outperforms a long session with accumulated corrections.
+**Cut your losses after two corrections.** If you've corrected Claude twice on the same issue and it's still wrong, don't keep pushing -- the context is polluted with failed approaches. Use checkpoints (`Esc Esc` or `/rewind`) to roll back to before the first wrong attempt and try again with a better prompt. If the session is too far gone even for that, `/clear` and start fresh. A clean prompt that incorporates what you learned almost always outperforms a long session with accumulated corrections.
 
-**Use checkpoints to recover, not to prevent.** Checkpoints (`Esc Esc` or `/rewind`) let you restore code and conversation to any previous prompt in the session. They're your undo system -- if Claude goes down a wrong path, rewind to before it diverged instead of trying to talk it back.
+#### Tools for managing context
+
+**Checkpoints** (`Esc Esc` or `/rewind`) restore code and conversation to any previous prompt in the session. They're your undo system -- use them aggressively. Try risky approaches knowing you can rewind if they don't work out.
 
 The "Summarize from here" option in the rewind menu is a more surgical alternative to `/compact`: instead of compressing everything, you keep early context intact and only summarize the part that's eating space (like a verbose debugging tangent). This preserves your initial instructions at full fidelity.
 
@@ -508,3 +500,4 @@ cp commands/fix-issue.md ~/.claude/commands/
 #### Fix Issue
 
 [`commands/fix-issue.md`](commands/fix-issue.md) -- Takes a GitHub issue and fully autonomously completes it -- plans, implements, tests, creates a PR, self-reviews with parallel agents, fixes its own findings, and comments on the issue when done. Invoke with `/fix-issue 123` where `123` is the issue number.
+
