@@ -18,10 +18,11 @@ Reference setup for Claude Code at Trail of Bits. Not a plugin -- just documenta
 - [Plugins and Skills](#plugins-and-skills)
 - [MCP Servers](#mcp-servers)
 - [Fast Mode](#fast-mode)
+- [Local Models](#local-models)
 
 **[Usage](#usage)**
+- [Context Management](#context-management)
 - [Web Browsing](#web-browsing)
-- [Local Models](#local-models)
 - [Example Commands](#example-commands)
 
 ## Getting Started
@@ -96,6 +97,19 @@ alias claude-yolo="claude --dangerously-skip-permissions"
 
 `--dangerously-skip-permissions` bypasses all permission prompts. This is the recommended way to run Claude Code for maximum throughput -- pair it with sandboxing (below).
 
+If you're using [local models](#local-models), also add:
+
+```bash
+claude-local() {
+  ANTHROPIC_BASE_URL=http://localhost:1234 \
+  ANTHROPIC_AUTH_TOKEN=lmstudio \
+  CLAUDE_CODE_DISABLE_NONESSENTIAL_TRAFFIC=1 \
+  claude "$@"
+}
+```
+
+`claude-local` wraps `claude` with the local server env vars and disables telemetry pings that won't reach Anthropic anyway. Use it anywhere you'd normally run `claude`.
+
 ### Settings
 
 Copy `settings.json` to `~/.claude/settings.json` (or merge entries into your existing file). The template includes:
@@ -137,6 +151,12 @@ cp claude-md-template.md ~/.claude/CLAUDE.md
 ```
 
 Review and customize it for your own preferences. The template is opinionated -- it assumes specific tools (`ruff`, `ty`, `oxlint`, `cargo clippy`, etc.) and enforces hard limits on function length, complexity, and line width. For background on how CLAUDE.md files work (hierarchy, auto memory, modular rules, imports), see [Manage Claude's memory](https://code.claude.com/docs/en/memory).
+
+#### Project-level CLAUDE.md
+
+The global file sets defaults; project-level `CLAUDE.md` files at the repo root add project-specific context. A good project CLAUDE.md includes architecture (directory tree, key abstractions), project-specific commands (`make dev`, `make test`), codebase navigation patterns (ast-grep examples for your codebase), domain-specific APIs and gotchas, and testing conventions unique to the project.
+
+For an example of a well-structured project CLAUDE.md, see [crytic/slither's CLAUDE.md](https://github.com/crytic/slither/blob/master/CLAUDE.md). It layers slither-specific context -- SlithIR internals, detector traversal patterns, type handling pitfalls -- on top of the same global standards from this repo.
 
 ### Continuous Improvement
 
@@ -237,55 +257,7 @@ Guide and examples: [Automate workflows with hooks](https://code.claude.com/docs
 
 **Blocking patterns** (`PreToolUse`, in `settings.json`): The two hooks in this repo's `settings.json` block `rm -rf` (suggests `trash` instead) and direct push to main/master (requires feature branches). Both read the Bash command from stdin via `jq`, match with regex, and exit 2 with an error message that tells Claude what to do instead.
 
-**Audit logging** (`PostToolUse`): A hook that logs every write operation to a JSONL changelog. This example tracks GAM (Google Apps Manager) commands -- it classifies each command as read or write using verb pattern lists, skips reads, and logs mutations with timestamp, action, command, and exit status. After a successful write, it prints a banner reminding the operator a mutation occurred. Adapt the verb patterns for any CLI tool where you want an audit trail.
-
-```bash
-#!/bin/bash
-set -euo pipefail
-# PostToolUse hook — logs GAM write operations to JSONL
-INPUT=$(cat)
-COMMAND=$(echo "${INPUT}" | jq -r '.tool_input.command // empty')
-
-[[ -z "${COMMAND}" ]] && exit 0
-[[ "${COMMAND}" != *'gam7/gam '* ]] && exit 0
-
-# Verb lists verified against GamCommands.txt v7.33.00
-READ_PATTERN='(print|show|info|get|list|report|check|version|help)'
-WRITE_PATTERN='(create|add|update|delete|remove|suspend|unsuspend|wipe|sync|move|transfer|trash|purge|enable|disable|deprovision)'
-
-GAM_ARGS="${COMMAND#*gam7/gam }"
-FIRST_WORD="${GAM_ARGS%% *}"
-
-# Skip read operations
-echo "${FIRST_WORD}" | grep -qiE "^${READ_PATTERN}$" && exit 0
-
-# Match write verb
-ACTION=$(echo "${GAM_ARGS}" | grep -oiE "(^|[[:space:]])${WRITE_PATTERN}([[:space:]]|$)" \
-  | head -1 | tr -d ' ' || true)
-[[ -z "${ACTION}" ]] && exit 0
-
-# Log the mutation
-EXIT_CODE=$(echo "${INPUT}" | jq -r '.tool_result.exit_code // 0')
-[[ "${EXIT_CODE}" == "0" ]] && STATUS="success" || STATUS="failed"
-LOG_FILE="${CLAUDE_PROJECT_DIR}/google/.changelog-raw.jsonl"
-mkdir -p "$(dirname "${LOG_FILE}")"
-
-jq -nc \
-  --arg ts "$(date -u +"%Y-%m-%dT%H:%M:%SZ")" \
-  --arg action "${ACTION}" \
-  --arg command "${COMMAND}" \
-  --arg status "${STATUS}" \
-  '{timestamp: $ts, action: $action, command: $command, status: $status}' \
-  >> "${LOG_FILE}"
-
-# Remind the operator
-if [[ "${STATUS}" == "success" ]]; then
-  echo "GAM MUTATION: ${ACTION} — logged to ${LOG_FILE}"
-fi
-exit 0
-```
-
-Wire it up in `settings.json` as a `PostToolUse` hook on `Bash`, pointing the command at the script.
+**Audit logging** (`PostToolUse`): [`hooks/log-gam.sh`](hooks/log-gam.sh) logs every write operation to a JSONL changelog. This example tracks GAM (Google Apps Manager) commands -- it classifies each command as read or write using verb pattern lists, skips reads, and logs mutations with timestamp, action, command, and exit status. After a successful write, it prints a banner reminding the operator a mutation occurred. Adapt the verb patterns for any CLI tool where you want an audit trail. Wire it up in `settings.json` as a `PostToolUse` hook on `Bash`, pointing the command at the script.
 
 **Bash command log** (`PostToolUse`): Appends every Bash command the agent runs to a log file with a timestamp. Useful for post-session review of what the agent actually did.
 
@@ -325,24 +297,7 @@ Wire it up in `settings.json` as a `PostToolUse` hook on `Bash`, pointing the co
 
 On Linux, replace the command with `notify-send 'Claude Code' 'Claude needs your attention'`.
 
-**Enforce package manager** (`PreToolUse`): If a project uses `pnpm`, block `npm` commands and tell Claude to use the right tool. Generalizes to any "use X not Y" convention.
-
-```bash
-#!/bin/bash
-set -euo pipefail
-# PreToolUse hook — enforce pnpm in projects that use it
-CMD=$(jq -r '.tool_input.command // empty')
-[[ -z "$CMD" ]] && exit 0
-
-# Only enforce if this project uses pnpm
-[[ ! -f "${CLAUDE_PROJECT_DIR}/pnpm-lock.yaml" ]] && exit 0
-
-if echo "$CMD" | grep -qE '^npm\s'; then
-  echo "BLOCKED: This project uses pnpm, not npm. Use pnpm instead." >&2
-  exit 2
-fi
-exit 0
-```
+**Enforce package manager** (`PreToolUse`): [`hooks/enforce-package-manager.sh`](hooks/enforce-package-manager.sh) blocks `npm` commands in projects that use `pnpm` and tells Claude to use the right tool. Generalizes to any "use X not Y" convention.
 
 **Anti-rationalization gate** (`Stop`, prompt hook): Claude has a tendency to declare victory while leaving work undone. It rationalizes skipping things: "these issues were pre-existing," "fixing this is out of scope," "I'll leave these for a follow-up." A prompt-based `Stop` hook catches this by asking a fast model to review Claude's final response for cop-outs before allowing it to stop.
 
@@ -426,7 +381,67 @@ The only time fast mode is worth it is **tight interactive loops** -- you're deb
 
 If you do use it, enable it at session start. Toggling it on mid-conversation reprices your entire context at fast-mode rates and invalidates prompt cache. See the [fast mode docs](https://code.claude.com/docs/en/fast-mode) for details.
 
+### Local Models
+
+Use [LM Studio](https://lmstudio.ai) to run local LLMs with Claude Code. LM Studio provides an Anthropic-compatible `/v1/messages` endpoint, so Claude Code connects with just a base URL change. On macOS it uses MLX for Apple Silicon-native inference, which is significantly faster than GGUF.
+
+#### Recommended model: Qwen3-Coder-Next (as of February 2026)
+
+[Qwen3-Coder-Next](https://lmstudio.ai/models/qwen3-coder-next) is an 80B mixture-of-experts model with only 3B active parameters, designed specifically for agentic coding. It handles tool use, long-horizon reasoning, and recovery from execution failures. The MLX 4-bit quantization is ~45GB and needs at least 64GB unified memory to load with a usable context window. 96GB or more is comfortable.
+
+Local models move fast. When this recommendation is stale, check the [LM Studio featured models page](https://lmstudio.ai/models) and pick the top coding model that fits in your memory as an MLX 4-bit quantization.
+
+#### Setup
+
+Download, load, and serve -- all from the CLI:
+
+```bash
+lms get lmstudio-community/Qwen3-Coder-Next-MLX-4bit -y
+lms load lmstudio-community/Qwen3-Coder-Next-MLX-4bit --context-length 32768 --gpu max -y
+lms server start
+```
+
+`--context-length 32768` allocates a 32K context window at load time. Claude Code is context-heavy, so don't go below 25K. Sampling parameters (temperature, top-p, etc.) don't need to be configured on the server -- Claude Code sends its own in each API request.
+
+#### Connecting
+
+Point Claude Code at LM Studio by setting the base URL and an auth token (any string works for local servers):
+
+```bash
+ANTHROPIC_BASE_URL=http://localhost:1234 \
+ANTHROPIC_AUTH_TOKEN=lmstudio \
+claude
+```
+
+Or use the `claude-local` shell function from [Shell Setup](#shell-setup) to avoid typing the env vars every time.
+
+#### Environment variables
+
+| Variable | Purpose |
+|----------|---------|
+| `ANTHROPIC_BASE_URL` | API endpoint (e.g., `http://localhost:1234`) |
+| `ANTHROPIC_AUTH_TOKEN` | API key (any string for local servers) |
+| `ANTHROPIC_DEFAULT_SONNET_MODEL` | Default model for most operations |
+| `ANTHROPIC_DEFAULT_OPUS_MODEL` | Model for opus-tier tasks |
+| `ANTHROPIC_DEFAULT_HAIKU_MODEL` | Model for summarization tasks |
+| `CLAUDE_CODE_SUBAGENT_MODEL` | Model for subagent tasks |
+| `CLAUDE_CODE_DISABLE_NONESSENTIAL_TRAFFIC` | Set to `1` to disable telemetry |
+
 ## Usage
+
+### Context Management
+
+The context window is finite and irreplaceable mid-session. Every file read, tool call, and conversation turn consumes it. When it fills up, Claude auto-compacts -- summarizing the conversation to free space. Auto-compaction works, but it's lossy: subtle decisions, error details, and the thread of reasoning degrade each time. The best strategy is to avoid needing it.
+
+**Scope work to one session.** Each feature, bug fix, or investigation should fit within a single context window. If a task is too large, break it into pieces and run each in a fresh session. This is the single most effective thing you can do for quality. A session that stays within its context budget produces better code than one that compacts three times to limp across the finish line. When you notice context running low (check the statusline -- green >50%, yellow >20%, red below), it's time to wrap up and start a new session, not push through.
+
+**Prefer `/clear` over `/compact`.** `/clear` wipes the conversation and starts fresh. `/compact` summarizes and continues. Default to `/clear` between tasks. `/compact` is useful when you're mid-task and need to reclaim space without losing your place, but each compaction is a lossy compression -- details get dropped, and the model's understanding of your intent degrades slightly. Two compactions in a session is a sign the task was too large. `/clear` has no information loss because there's nothing to lose -- your CLAUDE.md reloads, git state is fresh, and the agent re-reads whatever files it needs. The overhead of re-reading a few files is trivial compared to the quality cost of working with degraded context.
+
+**Use checkpoints to recover, not to prevent.** Checkpoints (`Esc Esc` or `/rewind`) let you restore code and conversation to any previous prompt in the session. They're your undo system -- if Claude goes down a wrong path, rewind to before it diverged instead of trying to talk it back. The "Summarize from here" option in the rewind menu is a more surgical alternative to `/compact`: instead of compressing everything, you keep early context intact and only summarize the part that's eating space (like a verbose debugging tangent). This preserves your initial instructions at full fidelity.
+
+**Offload research to subagents.** Subagents (Task tool, custom agents) each get their own context window. The main session only sees the subagent's summary, not its full working context. Use this deliberately: when a task requires reading a lot of documentation, exploring unfamiliar code, or doing research that would bloat your main session, delegate it to a subagent. The main session stays lean and focused on implementation while subagents handle the context-heavy exploration.
+
+**Put stable context in CLAUDE.md, not the conversation.** Project architecture, coding standards, tool preferences, workflow conventions -- anything reusable goes in CLAUDE.md. It loads automatically every session and survives `/clear`. Don't put session-specific state there. If you need to pass context between sessions, commit your work, write a brief plan to a file, `/clear`, and start the next session by pointing Claude at that file. Git is your cross-session memory -- not CLAUDE.md, not compaction summaries.
 
 ### Web Browsing
 
@@ -462,234 +477,20 @@ Browser automation via the [Claude in Chrome](https://chromewebstore.google.com/
 | Record a video of browser actions | agent-browser |
 | Inspect visual layout or take screenshots for analysis | Claude in Chrome |
 
-### Local Models
-
-Use [LM Studio](https://lmstudio.ai) to run local LLMs with Claude Code. LM Studio provides an Anthropic-compatible `/v1/messages` endpoint, so Claude Code connects with just a base URL change. On macOS it uses MLX for Apple Silicon-native inference, which is significantly faster than GGUF.
-
-#### Recommended model: Qwen3-Coder-Next (as of February 2026)
-
-[Qwen3-Coder-Next](https://lmstudio.ai/models/qwen3-coder-next) is an 80B mixture-of-experts model with only 3B active parameters, designed specifically for agentic coding. It handles tool use, long-horizon reasoning, and recovery from execution failures. The MLX 4-bit quantization is ~45GB and needs at least 64GB unified memory to load with a usable context window. 96GB or more is comfortable.
-
-Local models move fast. When this recommendation is stale, check the [LM Studio featured models page](https://lmstudio.ai/models) and pick the top coding model that fits in your memory as an MLX 4-bit quantization.
-
-#### Setup
-
-Download, load, and serve -- all from the CLI:
-
-```bash
-lms get lmstudio-community/Qwen3-Coder-Next-MLX-4bit -y
-lms load lmstudio-community/Qwen3-Coder-Next-MLX-4bit --context-length 32768 --gpu max -y
-lms server start
-```
-
-`--context-length 32768` allocates a 32K context window at load time. Claude Code is context-heavy, so don't go below 25K. Sampling parameters (temperature, top-p, etc.) don't need to be configured on the server -- Claude Code sends its own in each API request.
-
-#### Running Claude Code locally
-
-Point Claude Code at LM Studio by setting the base URL and an auth token (any string works for local servers):
-
-```bash
-ANTHROPIC_BASE_URL=http://localhost:1234 \
-ANTHROPIC_AUTH_TOKEN=lmstudio \
-claude
-```
-
-To avoid typing that every time, add to `~/.zshrc`:
-
-```bash
-claude-local() {
-  ANTHROPIC_BASE_URL=http://localhost:1234 \
-  ANTHROPIC_AUTH_TOKEN=lmstudio \
-  CLAUDE_CODE_DISABLE_NONESSENTIAL_TRAFFIC=1 \
-  claude "$@"
-}
-```
-
-`claude-local` wraps `claude` with the local server env vars and disables telemetry pings that won't reach Anthropic anyway. Use it anywhere you'd normally run `claude`.
-
-#### Environment variables
-
-| Variable | Purpose |
-|----------|---------|
-| `ANTHROPIC_BASE_URL` | API endpoint (e.g., `http://localhost:1234`) |
-| `ANTHROPIC_AUTH_TOKEN` | API key (any string for local servers) |
-| `ANTHROPIC_DEFAULT_SONNET_MODEL` | Default model for most operations |
-| `ANTHROPIC_DEFAULT_OPUS_MODEL` | Model for opus-tier tasks |
-| `ANTHROPIC_DEFAULT_HAIKU_MODEL` | Model for summarization tasks |
-| `CLAUDE_CODE_SUBAGENT_MODEL` | Model for subagent tasks |
-| `CLAUDE_CODE_DISABLE_NONESSENTIAL_TRAFFIC` | Set to `1` to disable telemetry |
-
 ### Example Commands
 
-Custom slash commands are markdown files that define reusable workflows. Below are two examples you can adapt. Save them as `.claude/commands/<name>.md` in your project or `~/.claude/commands/<name>.md` globally.
+Custom slash commands are markdown files that define reusable workflows. The `commands/` directory contains two examples you can copy into place:
+
+```bash
+mkdir -p ~/.claude/commands
+cp commands/review-pr.md ~/.claude/commands/
+cp commands/fix-issue.md ~/.claude/commands/
+```
 
 #### Review PR
 
-Reviews a GitHub PR with parallel agents, fixes findings, and pushes. Invoke with `/review-pr 456` where `456` is the PR number.
-
-```markdown
-# Review and Fix PR
-
-@description Review an existing PR with parallel agents, fix findings, and push.
-@arguments $PR_NUMBER: GitHub PR number to review and fix
-
-Read PR #$PR_NUMBER thoroughly using `gh pr view`. Understand the
-full context: description, linked issues, commit history, and the
-diff against the base branch. Check out the PR branch locally.
-
-Execute every step below sequentially. Do not stop or ask for
-confirmation at any step.
-
-## 1. Review
-
-Use `/compound-engineering:workflows:review` to perform a full
-multi-agent code review of PR #$PR_NUMBER. Produce a list of
-findings ranked by severity (P1 = blocks merge, P2 = important,
-P3 = nice to have, P4 = informational).
-
-## 2. Fix findings
-
-Address all P1-P3 findings. For each finding, either:
-
-- **Fix it** -- apply the change, or
-- **Dismiss it** -- explain why it's a false positive or not worth
-  the churn (e.g. a stylistic disagreement or an impossible edge
-  case). Document the reasoning inline.
-
-P4 findings are informational -- note them but do not fix unless
-trivial.
-
-## 3. Verify
-
-Run the project's full quality pipeline:
-
-1. Build (compile/bundle if the project has a build step)
-2. Run the full test suite -- iterate on failures until green
-3. Run linting, formatting, and type-checking -- fix any issues
-
-Refer to the project's CLAUDE.md or package.json/Makefile/etc.
-for the correct commands.
-
-## 4. Commit and push
-
-- Commit the fixes as a separate commit (do not squash into the
-  original -- preserve review history)
-- Use commit message: `fix: resolve code review findings for
-  PR #$PR_NUMBER`
-- Push the branch (regular push, not force-push)
-- Delete any todo files in `todos/` that were created by the
-  review and are now resolved
-
-## 5. Post summary
-
-Add a comment on PR #$PR_NUMBER summarizing what was done:
-
-- Total findings by severity (e.g. "3 P2, 5 P3")
-- How many were fixed vs dismissed (with brief reasoning for
-  any dismissals)
-- Confirmation that the quality pipeline passes
-```
+[`commands/review-pr.md`](commands/review-pr.md) -- Reviews a GitHub PR with parallel agents, fixes findings, and pushes. Invoke with `/review-pr 456` where `456` is the PR number.
 
 #### Fix Issue
 
-Takes a GitHub issue and fully autonomously completes it -- plans, implements, tests, creates a PR, self-reviews with parallel agents, fixes its own findings, and comments on the issue when done. Invoke with `/fix-issue 123` where `123` is the issue number.
-
-```markdown
-# Fix GitHub Issue
-
-@description End-to-end: plan, implement, test, PR, review, fix findings, and comment on a GitHub issue.
-@arguments $ISSUE_NUMBER: GitHub issue number to fix
-
-Read GitHub Issue #$ISSUE_NUMBER thoroughly. Understand the full
-context: problem description, acceptance criteria, linked PRs,
-and any discussion. Follow linked issues, referenced PRs, and
-external documentation to build complete understanding before
-planning.
-
-Execute every step below sequentially. Do not stop or ask for
-confirmation at any step.
-
-## 1. Plan
-
-Write a detailed implementation plan to `plan-issue-$ISSUE_NUMBER.md`
-in the repo root. The plan must:
-
-- Summarize the issue requirements
-- List every file to create or modify
-- Describe the approach and key design decisions
-- Call out risks or open questions
-- Reference relevant code paths by file:line
-
-## 2. Implement
-
-Implement the plan across all necessary files. Follow the
-project's CLAUDE.md standards. Keep changes minimal and focused
-on the issue requirements -- no speculative features.
-
-## 3. Build, test, lint
-
-Run the project's full quality pipeline in this order:
-
-1. Build (compile/bundle if the project has a build step)
-2. Run the full test suite -- iterate on failures until green
-3. Add new tests for the changed behavior
-4. Run linting, formatting, and type-checking -- fix any issues
-
-Refer to the project's CLAUDE.md or package.json/Makefile/etc.
-for the correct commands.
-
-## 4. Branch, commit, and push
-
-- Determine the branch prefix from the issue type: `fix/` for
-  bugs, `feat/` for features, `refactor/` for refactors, `docs/`
-  for documentation. When ambiguous, use `fix/`.
-- Create a branch named `{prefix}issue-$ISSUE_NUMBER`
-- Delete the plan file (`plan-issue-$ISSUE_NUMBER.md`) -- it was a
-  working artifact and should not be committed
-- Commit all changes with a conventional commit message referencing
-  the issue
-- Push the branch
-
-## 5. Create PR
-
-Create a PR with:
-
-- A concise title (under 70 chars)
-- A description that maps changes back to the issue requirements
-- Link to the issue with "Closes #$ISSUE_NUMBER" (or "Refs" if it
-  doesn't fully close it)
-
-## 6. Self-review
-
-Use `/compound-engineering:workflows:review` to perform a full
-multi-agent code review of the PR. Produce a list of findings
-ranked by severity (P1 = blocks merge, P2 = important, P3 = nice
-to have).
-
-## 7. Fix findings
-
-Address all P1-P3 findings. For each finding, either:
-
-- **Fix it** -- apply the change, or
-- **Dismiss it** -- explain why it's a false positive or not worth
-  the churn (e.g. a stylistic disagreement or an impossible edge
-  case). Document the reasoning inline.
-
-After addressing all findings:
-
-1. Re-run the full quality pipeline (build, test, lint)
-2. Commit the fixes as a separate commit (do not squash into the
-   original -- preserve review history)
-3. Push the branch (regular push, not force-push)
-4. Delete any todo files in `todos/` that were created by the
-   review and are now resolved
-
-## 8. Comment on issue
-
-Post a summary comment on Issue #$ISSUE_NUMBER linking to the PR.
-Include:
-
-- What was implemented (1-3 bullet points)
-- Key design decisions
-- Link to the PR
-```
+[`commands/fix-issue.md`](commands/fix-issue.md) -- Takes a GitHub issue and fully autonomously completes it -- plans, implements, tests, creates a PR, self-reviews with parallel agents, fixes its own findings, and comments on the issue when done. Invoke with `/fix-issue 123` where `123` is the issue number.
