@@ -1,0 +1,19 @@
+{
+  "mcpServers": {
+    "context7": {
+      "command": "npx",
+      "args": ["-y", "@upstash/context7-mcp"]
+    },
+    "exa": {
+      "command": "npx",
+      "args": ["-y", "exa-mcp-server"],
+      "env": {
+        "EXA_API_KEY": "your-exa-api-key-here"
+      }
+    },
+    "granola": {
+      "type": "streamable-http",
+      "url": "https://mcp.granola.ai/mcp"
+    }
+  }
+}
