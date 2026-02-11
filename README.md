@@ -136,7 +136,7 @@ Copy the template into place:
 cp claude-md-template.md ~/.claude/CLAUDE.md
 ```
 
-Review and customize it for your own preferences. The template is opinionated -- it assumes specific tools (`ruff`, `ty`, `oxlint`, `cargo clippy`, etc.) and enforces hard limits on function length, complexity, and line width.
+Review and customize it for your own preferences. The template is opinionated -- it assumes specific tools (`ruff`, `ty`, `oxlint`, `cargo clippy`, etc.) and enforces hard limits on function length, complexity, and line width. For background on how CLAUDE.md files work (hierarchy, auto memory, modular rules, imports), see [Manage Claude's memory](https://code.claude.com/docs/en/memory).
 
 ### Continuous Improvement
 
@@ -170,7 +170,7 @@ Claude Code has a native sandbox that provides filesystem and network isolation 
 
 **Default behavior:** The agent can write only to the current working directory and its subdirectories, but it can **read the entire filesystem** (except certain denied directories). Network access is restricted to explicitly allowed domains. This means the sandbox protects your system from modification, but doesn't provide read isolation -- the agent can still read `~/.ssh`, `~/.aws`, etc.
 
-**Hardening reads:** The `settings.json` template in this repo includes deny rules that block the agent from reading credentials and secrets. These rules apply regardless of whether you use the sandbox:
+**Hardening reads:** The `settings.json` template in this repo includes `Read` and `Edit` deny rules that block access to credentials and secrets:
 
 - **SSH/GPG keys** -- `~/.ssh/**`, `~/.gnupg/**`
 - **Cloud credentials** -- `~/.aws/**`, `~/.azure/**`, `~/.kube/**`, `~/.docker/config.json`
@@ -180,7 +180,9 @@ Claude Code has a native sandbox that provides filesystem and network isolation 
 - **macOS keychain** -- `~/Library/Keychains/**`
 - **Crypto wallets** -- metamask, electrum, exodus, phantom, solflare app data
 
-See the [official sandboxing docs](https://code.claude.com/docs/en/sandboxing) for the full configuration reference.
+**How these rules interact with the sandbox:** Permission deny rules and the sandbox are two layers enforcing the same rules. Without `/sandbox`, a `Read(~/.ssh/**)` deny rule only blocks Claude's built-in Read tool -- a Bash command like `cat ~/.ssh/id_rsa` can still reach the file. With `/sandbox` enabled, the sandbox takes the same `Read` and `Edit` deny rules and enforces them at the OS level (Seatbelt/bubblewrap), so Bash commands are also blocked. Use both: deny rules as the baseline, `/sandbox` for OS-level enforcement that survives prompt injection.
+
+For the design rationale behind sandboxing, see Anthropic's [engineering blog post](https://www.anthropic.com/engineering/claude-code-sandboxing). For the full configuration reference, see the [sandboxing docs](https://code.claude.com/docs/en/sandboxing).
 
 #### Devcontainer
 
@@ -196,11 +198,19 @@ For complete isolation from your local machine, run the agent on a disposable cl
 
 ### Hooks
 
-Hooks are shell commands (or LLM prompts) that fire at specific points in Claude Code's lifecycle. They are the primary mechanism for **policy enforcement** -- shaping what the agent does and doesn't do.
+Hooks are shell commands (or LLM prompts) that fire at specific points in Claude Code's lifecycle. They are a way to talk to the LLM at decision points it wouldn't otherwise pause at. Every `PreToolUse` hook is a chance to say "stop, think about this" or "don't do that, do this instead." Every `PostToolUse` hook is a chance to say "now that you did that, here's what you should know." Every `Stop` hook is a chance to say "you're not done yet."
 
-Hooks are not a security boundary. A determined attacker or a sufficiently creative agent can work around them. What hooks *are* good for is **structured prompt injection at opportune times**: intercepting tool calls, injecting context, blocking known-bad patterns, and steering agent behavior toward your preferred workflows. Think of them as guardrails, not walls.
+This is more powerful than system prompt instructions alone because hooks fire at specific, contextual moments. An instruction in your CLAUDE.md saying "never use `rm -rf`" can be forgotten or overridden by context pressure. A `PreToolUse` hook that blocks `rm -rf` fires every single time, with the error message right at the point of decision.
 
-Full reference: [Hooks documentation](https://code.claude.com/docs/en/hooks)
+Hooks are not a security boundary -- a prompt injection can work around them. They are **structured prompt injection at opportune times**: intercepting tool calls, injecting context, blocking known-bad patterns, and steering agent behavior. Guardrails, not walls.
+
+Use hooks for:
+- **Blocking known-bad patterns** (`rm -rf`, push to main, plan mode in constrained environments)
+- **Injecting context at decision points** (post-write lint results, pre-tool security warnings)
+- **Enforcing workflow conventions** (require tests pass before marking tasks complete)
+- **Adapting agent behavior** without modifying the agent itself (Agent SDK, MCP integrations)
+
+Guide and examples: [Automate workflows with hooks](https://code.claude.com/docs/en/hooks-guide)
 
 #### Hook events
 
@@ -225,46 +235,133 @@ Full reference: [Hooks documentation](https://code.claude.com/docs/en/hooks)
 
 #### Examples
 
-The `settings.json` in this repo includes two `PreToolUse` hooks on the `Bash` tool:
+**Blocking patterns** (`PreToolUse`, in `settings.json`): The two hooks in this repo's `settings.json` block `rm -rf` (suggests `trash` instead) and direct push to main/master (requires feature branches). Both read the Bash command from stdin via `jq`, match with regex, and exit 2 with an error message that tells Claude what to do instead.
 
-| Hook | What it blocks |
-|------|----------------|
-| `rm -rf` blocker | Catches `rm -rf` commands, suggests `trash` instead |
-| `git push to main` blocker | Catches direct push to main/master, requires feature branches |
+**Audit logging** (`PostToolUse`): A hook that logs every write operation to a JSONL changelog. This example tracks GAM (Google Apps Manager) commands -- it classifies each command as read or write using verb pattern lists, skips reads, and logs mutations with timestamp, action, command, and exit status. After a successful write, it prints a banner reminding the operator a mutation occurred. Adapt the verb patterns for any CLI tool where you want an audit trail.
 
-Here is a more interesting example. Claude Code has an undocumented `EnterPlanMode` tool that it can invoke at any time, switching itself into a read-only planning mode. This is useful for complex tasks, but it can cause problems in the Agent SDK where tools like `ExitPlanMode` and `AskUserQuestion` may not be available, leaving the agent stuck in a loop. A `PreToolUse` hook solves this:
+```bash
+#!/bin/bash
+set -euo pipefail
+# PostToolUse hook — logs GAM write operations to JSONL
+INPUT=$(cat)
+COMMAND=$(echo "${INPUT}" | jq -r '.tool_input.command // empty')
+
+[[ -z "${COMMAND}" ]] && exit 0
+[[ "${COMMAND}" != *'gam7/gam '* ]] && exit 0
+
+# Verb lists verified against GamCommands.txt v7.33.00
+READ_PATTERN='(print|show|info|get|list|report|check|version|help)'
+WRITE_PATTERN='(create|add|update|delete|remove|suspend|unsuspend|wipe|sync|move|transfer|trash|purge|enable|disable|deprovision)'
+
+GAM_ARGS="${COMMAND#*gam7/gam }"
+FIRST_WORD="${GAM_ARGS%% *}"
+
+# Skip read operations
+echo "${FIRST_WORD}" | grep -qiE "^${READ_PATTERN}$" && exit 0
+
+# Match write verb
+ACTION=$(echo "${GAM_ARGS}" | grep -oiE "(^|[[:space:]])${WRITE_PATTERN}([[:space:]]|$)" \
+  | head -1 | tr -d ' ' || true)
+[[ -z "${ACTION}" ]] && exit 0
+
+# Log the mutation
+EXIT_CODE=$(echo "${INPUT}" | jq -r '.tool_result.exit_code // 0')
+[[ "${EXIT_CODE}" == "0" ]] && STATUS="success" || STATUS="failed"
+LOG_FILE="${CLAUDE_PROJECT_DIR}/google/.changelog-raw.jsonl"
+mkdir -p "$(dirname "${LOG_FILE}")"
+
+jq -nc \
+  --arg ts "$(date -u +"%Y-%m-%dT%H:%M:%SZ")" \
+  --arg action "${ACTION}" \
+  --arg command "${COMMAND}" \
+  --arg status "${STATUS}" \
+  '{timestamp: $ts, action: $action, command: $command, status: $status}' \
+  >> "${LOG_FILE}"
+
+# Remind the operator
+if [[ "${STATUS}" == "success" ]]; then
+  echo "GAM MUTATION: ${ACTION} — logged to ${LOG_FILE}"
+fi
+exit 0
+```
+
+Wire it up in `settings.json` as a `PostToolUse` hook on `Bash`, pointing the command at the script.
+
+**Bash command log** (`PostToolUse`): Appends every Bash command the agent runs to a log file with a timestamp. Useful for post-session review of what the agent actually did.
 
 ```json
 {
-  "hooks": {
-    "PreToolUse": [
-      {
-        "matcher": "EnterPlanMode",
-        "hooks": [
-          {
-            "type": "command",
-            "command": "echo 'EnterPlanMode is disabled. Skip planning and implement directly.' && exit 2"
-          }
-        ]
-      }
-    ]
-  }
+  "PostToolUse": [
+    {
+      "matcher": "Bash",
+      "hooks": [
+        {
+          "type": "command",
+          "command": "jq -r '\"[\" + (now | todate) + \"] \" + .tool_input.command' >> ~/.claude/bash-commands.log"
+        }
+      ]
+    }
+  ]
 }
 ```
 
-The agent tries to call `EnterPlanMode`, the hook fires, exit code 2 blocks the call, and the stderr message tells Claude to proceed without planning. No code change, no SDK modification -- just a hook that injects the right guidance at the right moment.
+**Desktop notifications** (`Notification`): Fires a native OS notification when Claude needs your attention, so you can switch to other work during long autonomous runs instead of watching the terminal.
 
-#### Philosophy
+```json
+{
+  "Notification": [
+    {
+      "matcher": "",
+      "hooks": [
+        {
+          "type": "command",
+          "command": "osascript -e 'display notification \"Claude needs your attention\" with title \"Claude Code\"'"
+        }
+      ]
+    }
+  ]
+}
+```
 
-The mental model: hooks are a way to talk to the LLM at decision points it wouldn't otherwise pause at. Every `PreToolUse` hook is a chance to say "stop, think about this" or "don't do that, do this instead." Every `PostToolUse` hook is a chance to say "now that you did that, here's what you should know." Every `Stop` hook is a chance to say "you're not done yet."
+On Linux, replace the command with `notify-send 'Claude Code' 'Claude needs your attention'`.
 
-This is more powerful than system prompt instructions alone because hooks fire at specific, contextual moments. An instruction in your CLAUDE.md saying "never use `rm -rf`" can be forgotten or overridden by context pressure. A `PreToolUse` hook that blocks `rm -rf` fires every single time, with the error message right at the point of decision.
+**Enforce package manager** (`PreToolUse`): If a project uses `pnpm`, block `npm` commands and tell Claude to use the right tool. Generalizes to any "use X not Y" convention.
 
-Use hooks for:
-- **Blocking known-bad patterns** (`rm -rf`, push to main, plan mode in constrained environments)
-- **Injecting context at decision points** (post-write lint results, pre-tool security warnings)
-- **Enforcing workflow conventions** (require tests pass before marking tasks complete)
-- **Adapting agent behavior** without modifying the agent itself (Agent SDK, MCP integrations)
+```bash
+#!/bin/bash
+set -euo pipefail
+# PreToolUse hook — enforce pnpm in projects that use it
+CMD=$(jq -r '.tool_input.command // empty')
+[[ -z "$CMD" ]] && exit 0
+
+# Only enforce if this project uses pnpm
+[[ ! -f "${CLAUDE_PROJECT_DIR}/pnpm-lock.yaml" ]] && exit 0
+
+if echo "$CMD" | grep -qE '^npm\s'; then
+  echo "BLOCKED: This project uses pnpm, not npm. Use pnpm instead." >&2
+  exit 2
+fi
+exit 0
+```
+
+**Anti-rationalization gate** (`Stop`, prompt hook): Claude has a tendency to declare victory while leaving work undone. It rationalizes skipping things: "these issues were pre-existing," "fixing this is out of scope," "I'll leave these for a follow-up." A prompt-based `Stop` hook catches this by asking a fast model to review Claude's final response for cop-outs before allowing it to stop.
+
+```json
+{
+  "Stop": [
+    {
+      "hooks": [
+        {
+          "type": "prompt",
+          "prompt": "Review the assistant's final response. Reject it if the assistant is rationalizing incomplete work. Common patterns: claiming issues are 'pre-existing' or 'out of scope' to avoid fixing them, saying there are 'too many issues' to address all of them, deferring work to a 'follow-up' that was not requested, listing problems without fixing them and calling that done, or skipping test/lint failures with excuses. If the response shows any of these patterns, respond {\"ok\": false, \"reason\": \"You are rationalizing incomplete work. [specific issue]. Go back and finish.\"}. If the work is genuinely complete, respond {\"ok\": true}."
+        }
+      ]
+    }
+  ]
+}
+```
+
+This uses `type: "prompt"` instead of `type: "command"` -- Claude Code sends the hook's prompt plus the assistant's response to a fast model (Haiku), which returns a yes/no judgment. If rejected, the `reason` is fed back to Claude as its next instruction, forcing it to continue.
 
 ### Plugins and Skills
 
@@ -298,7 +395,7 @@ Where to publish depends on the audience:
 
 #### Writing custom skills
 
-When you find yourself repeating the same multi-step workflow, extract it into a skill. Read Anthropic's [official skills documentation](https://code.claude.com/docs/en/skills) for the full reference on frontmatter fields, supporting files, subagent execution, and dynamic context injection.
+When you find yourself repeating the same multi-step workflow, extract it into a skill. Read Anthropic's [skill authoring best practices](https://platform.claude.com/docs/en/agents-and-tools/agent-skills/best-practices) for guidance on structure, descriptions, and testing.
 
 The short version: create `~/.claude/skills/my-skill/SKILL.md` with YAML frontmatter (`name`, `description`, `allowed-tools`) and markdown instructions. Test with `/my-skill`. Be specific in the `description` so Claude knows when to activate it.
 
@@ -327,7 +424,7 @@ Copy `mcp-template.json` from this repo to `~/.mcp.json` for global availability
 
 The only time fast mode is worth it is **tight interactive loops** -- you're debugging live, iterating on output, and every second of latency costs you focus. If you're about to kick off an autonomous run (`/fix-issue`, a swarm, anything you walk away from), turn it off first. The agent doesn't benefit from lower latency; you're just burning money.
 
-If you do use it, enable it at session start. Toggling it on mid-conversation reprices your entire context at fast-mode rates and invalidates prompt cache.
+If you do use it, enable it at session start. Toggling it on mid-conversation reprices your entire context at fast-mode rates and invalidates prompt cache. See the [fast mode docs](https://code.claude.com/docs/en/fast-mode) for details.
 
 ## Usage
 
