@@ -1,0 +1,25 @@
+{
+  "cleanupPeriodDays": 365,
+  "hooks": {
+    "Bash": [
+      {
+        "type": "command",
+        "command": "if echo \"$CLAUDE_TOOL_INPUT\" | grep -qE 'rm[[:space:]]+-[^[:space:]]*r[^[:space:]]*f'; then echo 'BLOCKED: Use trash instead of rm -rf' >&2; exit 2; fi"
+      },
+      {
+        "type": "command",
+        "command": "if echo \"$CLAUDE_TOOL_INPUT\" | grep -qE 'git[[:space:]]+push.*(main|master)'; then echo 'BLOCKED: Use feature branches, not direct push to main' >&2; exit 2; fi"
+      }
+    ]
+  },
+  "statusLine": {
+    "type": "command",
+    "command": "~/.claude/statusline.sh"
+  },
+  "enabledPlugins": {
+    "superpowers@superpowers-marketplace": true,
+    "superpowers-developing-for-claude-code@superpowers-marketplace": true,
+    "compound-engineering@every-marketplace": true,
+    "agent-browser@agent-browser": true
+  }
+}

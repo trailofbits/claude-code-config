@@ -266,3 +266,59 @@ pnpm config set ignore-scripts true     # Block postinstall attacks
 - Python: `tests/` directory mirroring package structure
 - Node/TS: colocated `*.test.ts` files
 - No scheduled CI without code changes—activity without progress is theater
+
+## Skills
+
+**Proactive skill usage is mandatory.** Before starting any non-trivial task:
+1. Review available skills for applicability
+2. Use the Skill tool to invoke matching skills—don't just announce them
+3. If no skill applies, proceed normally
+
+**Recommend missed opportunities.** If you notice a skill would help but wasn't requested:
+- Mention it briefly: "Consider using `/skill-name` for this—it handles [specific benefit]"
+- Don't block on it—offer and continue
+
+**Key triggers:**
+
+| When... | Use |
+|---------|-----|
+| Starting non-trivial work | `/superpowers:brainstorm` first |
+| Need implementation plan | `/superpowers:write-plan` |
+| Executing a plan | `/superpowers:execute-plan` |
+| Implementing features/bugfixes | `/superpowers:test-driven-development` |
+| Debugging any failure | `/superpowers:systematic-debugging` |
+| Before claiming "done" | `/superpowers:verification-before-completion` |
+| Creating commits | `/commit` |
+| Commit + push + PR | `/commit-push-pr` |
+| PR ready for review | `/code-review` |
+| Building frontend UIs | `/frontend-design` |
+| Multi-phase feature work | `/feature-dev` |
+| Need parallel workspace | `/superpowers:using-git-worktrees` |
+
+### Compound Engineering
+
+| When... | Use |
+|---------|-----|
+| Planning features/bugs | `/compound-engineering:workflows:plan` |
+| Multi-agent code review | `/compound-engineering:workflows:review` |
+| Executing work items | `/compound-engineering:workflows:work` |
+| Documenting solved problems | `/compound-engineering:workflows:compound` |
+| Performance analysis | `performance-oracle` agent |
+| Architecture review | `architecture-strategist` agent |
+| Research framework docs | `framework-docs-researcher` agent |
+| Analyze git history | `git-history-analyzer` agent |
+| Simplify code | `code-simplicity-reviewer` agent |
+| Python code review | `kieran-python-reviewer` agent |
+
+### Browser Automation
+
+Two options available:
+
+| Tool | Best for |
+|------|----------|
+| `agent-browser` | CLI-based, scriptable, video recording, parallel sessions |
+| Claude in Chrome (MCP) | Visual inspection, screenshots with image analysis |
+
+---
+
+> Don't push until explicitly asked. Don't be hyperbolic in PR writeups.
