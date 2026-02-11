@@ -10,6 +10,7 @@ Global instructions for all projects. Project-specific CLAUDE.md files override 
 - **Justify new dependencies** - Each dependency is attack surface and maintenance burden
 - **No unnecessary configuration** - Don't add flags unless users actively need them
 - **No phantom features** - Don't document or validate features that aren't implemented
+- **Agent-native by default** - Design so agents can achieve any outcome users can. Tools are atomic primitives; features are outcomes described in prompts. Prefer file-based state for transparency and portability. When adding UI capability, ask: can an agent achieve this outcome too?
 
 ## Code Quality
 
@@ -41,6 +42,17 @@ Code should be self-documenting. If you need a comment to explain WHAT the code 
 
 - State your assumption and proceed for small decisions
 - Ask before changes with significant unintended consequences
+
+### Reviewing code
+
+Evaluate in this order: architecture (component boundaries, coupling, data flow, scaling, single points of failure) → code quality (DRY violations, error handling gaps, tech debt hotspots) → tests (coverage gaps, missing edge cases, untested error paths) → performance (N+1 queries, memory, caching opportunities, high-complexity paths).
+
+For each issue found:
+- Describe concretely with file:line references
+- Present 2–3 options (including "do nothing" where reasonable)
+- For each option: effort, risk, impact on other code, maintenance burden
+- Give your recommended option and why
+- Ask before proceeding
 
 ## Development
 
@@ -176,6 +188,7 @@ All scripts must start with `set -euo pipefail`. Lint: `shellcheck script.sh && 
 2. Run relevant tests (not full suite) after changes
 3. Use `git diff` to verify changes before committing
 4. Never commit changes that break rules above—refactor instead
+5. For large reviews or multi-area changes, work one section at a time and pause for feedback before moving on
 
 ### Git
 
@@ -201,6 +214,8 @@ wt merge <branch>          # Merge with squash/rebase options
 - Pass the worktree path to the subagent, not the main repo path
 - Never have multiple subagents share the same working directory
 
+Use `/parallel-issue-fixing` skill for the full workflow template.
+
 ### Git hooks
 
 Use `prek` for pre-commit hooks (Rust-based, no Python): `prek install`, `prek run`, `prek auto-update --cooldown-days 7`
@@ -212,6 +227,83 @@ Pin actions to SHA hashes with version comments: `actions/checkout@<full-sha>  #
 ### Dependabot
 
 Configure 7-day cooldowns in `.github/dependabot.yml` for supply chain protection (`cooldown.default-days: 7`).
+
+## Code Review
+
+Before reviewing or comparing PR code, always ensure the local repo is synced to the latest remote state (`git pull` or `git fetch origin`) to avoid reviewing stale code.
+
+## Pull Requests
+
+When creating PRs, describe the current state of the code — not the journey of how it got there. If multiple approaches were tried across commits, the PR description should only reflect what actually landed. Do not include aspirational or planned changes that aren't in the diff.
+
+## Skills
+
+**Proactive skill usage is mandatory.** Before starting any non-trivial task:
+1. Review available skills for applicability
+2. Use the Skill tool to invoke matching skills—don't just announce them
+3. If no skill applies, proceed normally
+
+**Recommend missed opportunities.** If you notice a skill would help but wasn't requested:
+- Mention it briefly: "Consider using `/skill-name` for this—it handles [specific benefit]"
+- Don't block on it—offer and continue
+
+**Key triggers:**
+
+| When... | Use |
+|---------|-----|
+| Starting non-trivial work | `/superpowers:brainstorm` first |
+| Need implementation plan | `/superpowers:write-plan` |
+| Executing a plan | `/superpowers:execute-plan` |
+| Implementing features/bugfixes | `/superpowers:test-driven-development` |
+| Debugging any failure | `/superpowers:systematic-debugging` |
+| Before claiming "done" | `/superpowers:verification-before-completion` |
+| Creating commits | `/commit` |
+| Commit + push + PR | `/commit-push-pr` |
+| PR ready for review | `/code-review` |
+| Building frontend UIs | `/frontend-design` |
+| Multi-phase feature work | `/feature-dev` |
+| Need parallel workspace | `/superpowers:using-git-worktrees` |
+
+### Compound Engineering
+
+| When... | Use |
+|---------|-----|
+| Planning features/bugs | `/compound-engineering:workflows:plan` |
+| Multi-agent code review | `/compound-engineering:workflows:review` |
+| Executing work items | `/compound-engineering:workflows:work` |
+| Documenting solved problems | `/compound-engineering:workflows:compound` |
+| Performance analysis | `performance-oracle` agent |
+| Architecture review | `architecture-strategist` agent |
+| Research framework docs | `framework-docs-researcher` agent |
+| Analyze git history | `git-history-analyzer` agent |
+| Simplify code | `code-simplicity-reviewer` agent |
+| Python code review | `kieran-python-reviewer` agent |
+| Designing agent-native systems | `/compound-engineering:agent-native-architecture` |
+| Auditing agent parity | `/compound-engineering:agent-native-audit` |
+| Agent-native parity review | `agent-native-reviewer` agent |
+
+### Browser Automation
+
+Two options available:
+
+| Tool | Best for |
+|------|----------|
+| `agent-browser` | CLI-based, scriptable, video recording, parallel sessions |
+| Claude in Chrome (MCP) | Visual inspection, screenshots with image analysis |
+
+**agent-browser quick reference:**
+```bash
+agent-browser open <url>        # Navigate
+agent-browser snapshot -i       # Get interactive elements with refs
+agent-browser click @e1         # Click by ref
+agent-browser fill @e2 "text"   # Fill input
+agent-browser screenshot        # Capture screenshot
+agent-browser record start demo.webm && ... && agent-browser record stop
+```
+
+## Web Search
+
+**Prefer Exa AI** (`mcp__exa__web_search_exa`) over the built-in `WebSearch` tool for all web searches. Exa returns higher-quality, more relevant results. Use `WebSearch` only as a fallback if Exa is unavailable or returns errors.
 
 ## Security
 
@@ -266,58 +358,6 @@ pnpm config set ignore-scripts true     # Block postinstall attacks
 - Python: `tests/` directory mirroring package structure
 - Node/TS: colocated `*.test.ts` files
 - No scheduled CI without code changes—activity without progress is theater
-
-## Skills
-
-**Proactive skill usage is mandatory.** Before starting any non-trivial task:
-1. Review available skills for applicability
-2. Use the Skill tool to invoke matching skills—don't just announce them
-3. If no skill applies, proceed normally
-
-**Recommend missed opportunities.** If you notice a skill would help but wasn't requested:
-- Mention it briefly: "Consider using `/skill-name` for this—it handles [specific benefit]"
-- Don't block on it—offer and continue
-
-**Key triggers:**
-
-| When... | Use |
-|---------|-----|
-| Starting non-trivial work | `/superpowers:brainstorm` first |
-| Need implementation plan | `/superpowers:write-plan` |
-| Executing a plan | `/superpowers:execute-plan` |
-| Implementing features/bugfixes | `/superpowers:test-driven-development` |
-| Debugging any failure | `/superpowers:systematic-debugging` |
-| Before claiming "done" | `/superpowers:verification-before-completion` |
-| Creating commits | `/commit` |
-| Commit + push + PR | `/commit-push-pr` |
-| PR ready for review | `/code-review` |
-| Building frontend UIs | `/frontend-design` |
-| Multi-phase feature work | `/feature-dev` |
-| Need parallel workspace | `/superpowers:using-git-worktrees` |
-
-### Compound Engineering
-
-| When... | Use |
-|---------|-----|
-| Planning features/bugs | `/compound-engineering:workflows:plan` |
-| Multi-agent code review | `/compound-engineering:workflows:review` |
-| Executing work items | `/compound-engineering:workflows:work` |
-| Documenting solved problems | `/compound-engineering:workflows:compound` |
-| Performance analysis | `performance-oracle` agent |
-| Architecture review | `architecture-strategist` agent |
-| Research framework docs | `framework-docs-researcher` agent |
-| Analyze git history | `git-history-analyzer` agent |
-| Simplify code | `code-simplicity-reviewer` agent |
-| Python code review | `kieran-python-reviewer` agent |
-
-### Browser Automation
-
-Two options available:
-
-| Tool | Best for |
-|------|----------|
-| `agent-browser` | CLI-based, scriptable, video recording, parallel sessions |
-| Claude in Chrome (MCP) | Visual inspection, screenshots with image analysis |
 
 ---
 

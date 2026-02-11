@@ -19,17 +19,17 @@ uv tool install ty
 uv tool install pip-audit
 ```
 
-Rust toolchain (optional -- skip if you don't write Rust):
+Rust toolchain:
 
 ```bash
 curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh
 cargo install prek worktrunk cargo-deny cargo-careful
 ```
 
-Node tools (optional):
+Node tools:
 
 ```bash
-npm install -g oxlint
+npm install -g oxlint agent-browser
 ```
 
 ## Shell Setup
@@ -44,7 +44,17 @@ alias claude-yolo="claude --dangerously-skip-permissions"
 
 ## Sandboxing
 
-Bypass-permissions mode should be paired with a sandbox so the agent can't escape the project directory or affect the host system:
+Bypass-permissions mode should be paired with a sandbox so the agent can't escape the project directory or affect the host system.
+
+### Built-in sandbox (`/sandbox`)
+
+Claude Code has a native sandbox that provides filesystem and network isolation using OS-level primitives (Seatbelt on macOS, bubblewrap on Linux). Enable it by typing `/sandbox` in a session. In auto-allow mode, Bash commands that stay within sandbox boundaries run without permission prompts. Commands that need access outside the sandbox fall back to the normal permission flow.
+
+See the [official sandboxing docs](https://code.claude.com/docs/en/sandboxing) for configuration options.
+
+### External sandboxes
+
+For stronger isolation or CI/headless use:
 
 - [trailofbits/claude-code-devcontainer](https://github.com/trailofbits/claude-code-devcontainer) -- devcontainer-based sandbox with full VS Code integration
 - [trailofbits/dropkit](https://github.com/trailofbits/dropkit) -- lightweight macOS sandbox using `sandbox-exec`
@@ -61,28 +71,81 @@ cp claude-md-template.md ~/.claude/CLAUDE.md
 
 Review and customize it for your own preferences. The template is opinionated -- it assumes specific tools (`ruff`, `ty`, `oxlint`, `cargo clippy`, etc.) and enforces hard limits on function length, complexity, and line width.
 
-## Settings
+## Hooks
 
-Copy `settings.json` to `~/.claude/settings.json` (or merge entries into your existing file).
+Hooks are shell commands (or LLM prompts) that fire at specific points in Claude Code's lifecycle. They are the primary mechanism for **policy enforcement** -- shaping what the agent does and doesn't do.
 
-### Safety hooks
+Hooks are not a security boundary. A determined attacker or a sufficiently creative agent can work around them. What hooks *are* good for is **structured prompt injection at opportune times**: intercepting tool calls, injecting context, blocking known-bad patterns, and steering agent behavior toward your preferred workflows. Think of them as guardrails, not walls.
 
-Two Bash hooks that block dangerous operations:
+Full reference: [Hooks documentation](https://code.claude.com/docs/en/hooks)
+
+### Hook events
+
+| Event | When it fires | Can block? |
+|-------|---------------|------------|
+| `PreToolUse` | Before a tool call executes | Yes |
+| `PostToolUse` | After a tool call succeeds | No (already ran) |
+| `UserPromptSubmit` | When user submits a prompt | Yes |
+| `Stop` | When Claude finishes responding | Yes (forces continue) |
+| `SessionStart` | When a session begins/resumes | No |
+| `SubagentStart`/`Stop` | When a subagent spawns/finishes | Start: no, Stop: yes |
+| `TaskCompleted` | When a task is marked complete | Yes |
+| `TeammateIdle` | When a teammate is about to idle | Yes |
+
+### Exit codes
+
+| Exit code | Behavior |
+|-----------|----------|
+| 0 | Action allowed (stdout parsed for JSON control) |
+| 1 | Error, non-blocking (stderr shown in verbose mode) |
+| 2 | Blocking error (stderr fed back to Claude as error message) |
+
+### Examples
+
+The `settings.json` in this repo includes two `PreToolUse` hooks on the `Bash` tool:
 
 | Hook | What it blocks |
 |------|----------------|
 | `rm -rf` blocker | Catches `rm -rf` commands, suggests `trash` instead |
 | `git push to main` blocker | Catches direct push to main/master, requires feature branches |
 
-These are pre-tool hooks -- they run before Claude executes any Bash command and exit non-zero to block the operation.
+Here is a more interesting example. Claude Code has an undocumented `EnterPlanMode` tool that it can invoke at any time, switching itself into a read-only planning mode. This is useful for complex tasks, but it can cause problems in the Agent SDK where tools like `ExitPlanMode` and `AskUserQuestion` may not be available, leaving the agent stuck in a loop. A `PreToolUse` hook solves this:
 
-Hook exit codes:
+```json
+{
+  "hooks": {
+    "PreToolUse": [
+      {
+        "matcher": "EnterPlanMode",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "echo 'EnterPlanMode is disabled. Skip planning and implement directly.' && exit 2"
+          }
+        ]
+      }
+    ]
+  }
+}
+```
 
-| Exit code | Behavior |
-|-----------|----------|
-| 0 | Command allowed |
-| 1 | Command blocked (silent) |
-| 2 | Command blocked (show stderr message to user) |
+The agent tries to call `EnterPlanMode`, the hook fires, exit code 2 blocks the call, and the stderr message tells Claude to proceed without planning. No code change, no SDK modification -- just a hook that injects the right guidance at the right moment.
+
+### Philosophy
+
+The mental model: hooks are a way to talk to the LLM at decision points it wouldn't otherwise pause at. Every `PreToolUse` hook is a chance to say "stop, think about this" or "don't do that, do this instead." Every `PostToolUse` hook is a chance to say "now that you did that, here's what you should know." Every `Stop` hook is a chance to say "you're not done yet."
+
+This is more powerful than system prompt instructions alone because hooks fire at specific, contextual moments. An instruction in your CLAUDE.md saying "never use `rm -rf`" can be forgotten or overridden by context pressure. A `PreToolUse` hook that blocks `rm -rf` fires every single time, with the error message right at the point of decision.
+
+Use hooks for:
+- **Blocking known-bad patterns** (`rm -rf`, push to main, plan mode in constrained environments)
+- **Injecting context at decision points** (post-write lint results, pre-tool security warnings)
+- **Enforcing workflow conventions** (require tests pass before marking tasks complete)
+- **Adapting agent behavior** without modifying the agent itself (Agent SDK, MCP integrations)
+
+## Settings
+
+Copy `settings.json` to `~/.claude/settings.json` (or merge entries into your existing file). The hooks described above are defined in this file.
 
 ### Statusline
 
