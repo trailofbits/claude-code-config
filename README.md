@@ -433,15 +433,25 @@ Or use the `claude-local` shell function from [Shell Setup](#shell-setup) to avo
 
 The context window is finite and irreplaceable mid-session. Every file read, tool call, and conversation turn consumes it. When it fills up, Claude auto-compacts -- summarizing the conversation to free space. Auto-compaction works, but it's lossy: subtle decisions, error details, and the thread of reasoning degrade each time. The best strategy is to avoid needing it.
 
-**Scope work to one session.** Each feature, bug fix, or investigation should fit within a single context window. If a task is too large, break it into pieces and run each in a fresh session. This is the single most effective thing you can do for quality. A session that stays within its context budget produces better code than one that compacts three times to limp across the finish line. When you notice context running low (check the statusline -- green >50%, yellow >20%, red below), it's time to wrap up and start a new session, not push through.
+**Scope work to one session.** Each feature, bug fix, or investigation should fit within a single context window. If a task is too large, break it into pieces and run each in a fresh session. This is the single most effective thing you can do for quality.
 
-**Prefer `/clear` over `/compact`.** `/clear` wipes the conversation and starts fresh. `/compact` summarizes and continues. Default to `/clear` between tasks. `/compact` is useful when you're mid-task and need to reclaim space without losing your place, but each compaction is a lossy compression -- details get dropped, and the model's understanding of your intent degrades slightly. Two compactions in a session is a sign the task was too large. `/clear` has no information loss because there's nothing to lose -- your CLAUDE.md reloads, git state is fresh, and the agent re-reads whatever files it needs. The overhead of re-reading a few files is trivial compared to the quality cost of working with degraded context.
+A session that stays within its context budget produces better code than one that compacts three times to limp across the finish line. When you notice context running low (check the statusline -- green >50%, yellow >20%, red below), it's time to wrap up and start a new session, not push through.
 
-**Use checkpoints to recover, not to prevent.** Checkpoints (`Esc Esc` or `/rewind`) let you restore code and conversation to any previous prompt in the session. They're your undo system -- if Claude goes down a wrong path, rewind to before it diverged instead of trying to talk it back. The "Summarize from here" option in the rewind menu is a more surgical alternative to `/compact`: instead of compressing everything, you keep early context intact and only summarize the part that's eating space (like a verbose debugging tangent). This preserves your initial instructions at full fidelity.
+**Prefer `/clear` over `/compact`.** `/clear` wipes the conversation and starts fresh. `/compact` summarizes and continues. Default to `/clear` between tasks.
 
-**Offload research to subagents.** Subagents (Task tool, custom agents) each get their own context window. The main session only sees the subagent's summary, not its full working context. Use this deliberately: when a task requires reading a lot of documentation, exploring unfamiliar code, or doing research that would bloat your main session, delegate it to a subagent. The main session stays lean and focused on implementation while subagents handle the context-heavy exploration.
+`/compact` is useful when you're mid-task and need to reclaim space without losing your place, but each compaction is a lossy compression -- details get dropped, and the model's understanding of your intent degrades slightly. Two compactions in a session is a sign the task was too large. `/clear` has no information loss because there's nothing to lose -- your CLAUDE.md reloads, git state is fresh, and the agent re-reads whatever files it needs.
 
-**Put stable context in CLAUDE.md, not the conversation.** Project architecture, coding standards, tool preferences, workflow conventions -- anything reusable goes in CLAUDE.md. It loads automatically every session and survives `/clear`. Don't put session-specific state there. If you need to pass context between sessions, commit your work, write a brief plan to a file, `/clear`, and start the next session by pointing Claude at that file. Git is your cross-session memory -- not CLAUDE.md, not compaction summaries.
+**Use checkpoints to recover, not to prevent.** Checkpoints (`Esc Esc` or `/rewind`) let you restore code and conversation to any previous prompt in the session. They're your undo system -- if Claude goes down a wrong path, rewind to before it diverged instead of trying to talk it back.
+
+The "Summarize from here" option in the rewind menu is a more surgical alternative to `/compact`: instead of compressing everything, you keep early context intact and only summarize the part that's eating space (like a verbose debugging tangent). This preserves your initial instructions at full fidelity.
+
+**Offload research to subagents.** Subagents (Task tool, custom agents) each get their own context window. The main session only sees the subagent's summary, not its full working context.
+
+Use this deliberately: when a task requires reading a lot of documentation, exploring unfamiliar code, or doing research that would bloat your main session, delegate it to a subagent. The main session stays lean and focused on implementation while subagents handle the context-heavy exploration.
+
+**Put stable context in CLAUDE.md, not the conversation.** Project architecture, coding standards, tool preferences, workflow conventions -- anything reusable goes in CLAUDE.md. It loads automatically every session and survives `/clear`.
+
+If you need to pass context between sessions, commit your work, write a brief plan to a file, `/clear`, and start the next session by pointing Claude at that file. Git is your cross-session memory -- not CLAUDE.md, not compaction summaries.
 
 ### Web Browsing
 
