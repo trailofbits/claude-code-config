@@ -237,55 +237,7 @@ Guide and examples: [Automate workflows with hooks](https://code.claude.com/docs
 
 **Blocking patterns** (`PreToolUse`, in `settings.json`): The two hooks in this repo's `settings.json` block `rm -rf` (suggests `trash` instead) and direct push to main/master (requires feature branches). Both read the Bash command from stdin via `jq`, match with regex, and exit 2 with an error message that tells Claude what to do instead.
 
-**Audit logging** (`PostToolUse`): A hook that logs every write operation to a JSONL changelog. This example tracks GAM (Google Apps Manager) commands -- it classifies each command as read or write using verb pattern lists, skips reads, and logs mutations with timestamp, action, command, and exit status. After a successful write, it prints a banner reminding the operator a mutation occurred. Adapt the verb patterns for any CLI tool where you want an audit trail.
-
-```bash
-#!/bin/bash
-set -euo pipefail
-# PostToolUse hook — logs GAM write operations to JSONL
-INPUT=$(cat)
-COMMAND=$(echo "${INPUT}" | jq -r '.tool_input.command // empty')
-
-[[ -z "${COMMAND}" ]] && exit 0
-[[ "${COMMAND}" != *'gam7/gam '* ]] && exit 0
-
-# Verb lists verified against GamCommands.txt v7.33.00
-READ_PATTERN='(print|show|info|get|list|report|check|version|help)'
-WRITE_PATTERN='(create|add|update|delete|remove|suspend|unsuspend|wipe|sync|move|transfer|trash|purge|enable|disable|deprovision)'
-
-GAM_ARGS="${COMMAND#*gam7/gam }"
-FIRST_WORD="${GAM_ARGS%% *}"
-
-# Skip read operations
-echo "${FIRST_WORD}" | grep -qiE "^${READ_PATTERN}$" && exit 0
-
-# Match write verb
-ACTION=$(echo "${GAM_ARGS}" | grep -oiE "(^|[[:space:]])${WRITE_PATTERN}([[:space:]]|$)" \
-  | head -1 | tr -d ' ' || true)
-[[ -z "${ACTION}" ]] && exit 0
-
-# Log the mutation
-EXIT_CODE=$(echo "${INPUT}" | jq -r '.tool_result.exit_code // 0')
-[[ "${EXIT_CODE}" == "0" ]] && STATUS="success" || STATUS="failed"
-LOG_FILE="${CLAUDE_PROJECT_DIR}/google/.changelog-raw.jsonl"
-mkdir -p "$(dirname "${LOG_FILE}")"
-
-jq -nc \
-  --arg ts "$(date -u +"%Y-%m-%dT%H:%M:%SZ")" \
-  --arg action "${ACTION}" \
-  --arg command "${COMMAND}" \
-  --arg status "${STATUS}" \
-  '{timestamp: $ts, action: $action, command: $command, status: $status}' \
-  >> "${LOG_FILE}"
-
-# Remind the operator
-if [[ "${STATUS}" == "success" ]]; then
-  echo "GAM MUTATION: ${ACTION} — logged to ${LOG_FILE}"
-fi
-exit 0
-```
-
-Wire it up in `settings.json` as a `PostToolUse` hook on `Bash`, pointing the command at the script.
+**Audit logging** (`PostToolUse`): [`hooks/log-gam.sh`](hooks/log-gam.sh) logs every write operation to a JSONL changelog. This example tracks GAM (Google Apps Manager) commands -- it classifies each command as read or write using verb pattern lists, skips reads, and logs mutations with timestamp, action, command, and exit status. After a successful write, it prints a banner reminding the operator a mutation occurred. Adapt the verb patterns for any CLI tool where you want an audit trail. Wire it up in `settings.json` as a `PostToolUse` hook on `Bash`, pointing the command at the script.
 
 **Bash command log** (`PostToolUse`): Appends every Bash command the agent runs to a log file with a timestamp. Useful for post-session review of what the agent actually did.
 
@@ -325,24 +277,7 @@ Wire it up in `settings.json` as a `PostToolUse` hook on `Bash`, pointing the co
 
 On Linux, replace the command with `notify-send 'Claude Code' 'Claude needs your attention'`.
 
-**Enforce package manager** (`PreToolUse`): If a project uses `pnpm`, block `npm` commands and tell Claude to use the right tool. Generalizes to any "use X not Y" convention.
-
-```bash
-#!/bin/bash
-set -euo pipefail
-# PreToolUse hook — enforce pnpm in projects that use it
-CMD=$(jq -r '.tool_input.command // empty')
-[[ -z "$CMD" ]] && exit 0
-
-# Only enforce if this project uses pnpm
-[[ ! -f "${CLAUDE_PROJECT_DIR}/pnpm-lock.yaml" ]] && exit 0
-
-if echo "$CMD" | grep -qE '^npm\s'; then
-  echo "BLOCKED: This project uses pnpm, not npm. Use pnpm instead." >&2
-  exit 2
-fi
-exit 0
-```
+**Enforce package manager** (`PreToolUse`): [`hooks/enforce-package-manager.sh`](hooks/enforce-package-manager.sh) blocks `npm` commands in projects that use `pnpm` and tells Claude to use the right tool. Generalizes to any "use X not Y" convention.
 
 **Anti-rationalization gate** (`Stop`, prompt hook): Claude has a tendency to declare victory while leaving work undone. It rationalizes skipping things: "these issues were pre-existing," "fixing this is out of scope," "I'll leave these for a follow-up." A prompt-based `Stop` hook catches this by asking a fast model to review Claude's final response for cop-outs before allowing it to stop.
 
@@ -521,175 +456,18 @@ claude-local() {
 
 ### Example Commands
 
-Custom slash commands are markdown files that define reusable workflows. Below are two examples you can adapt. Save them as `.claude/commands/<name>.md` in your project or `~/.claude/commands/<name>.md` globally.
+Custom slash commands are markdown files that define reusable workflows. The `commands/` directory contains two examples you can copy into place:
+
+```bash
+mkdir -p ~/.claude/commands
+cp commands/review-pr.md ~/.claude/commands/
+cp commands/fix-issue.md ~/.claude/commands/
+```
 
 #### Review PR
 
-Reviews a GitHub PR with parallel agents, fixes findings, and pushes. Invoke with `/review-pr 456` where `456` is the PR number.
-
-```markdown
-# Review and Fix PR
-
-@description Review an existing PR with parallel agents, fix findings, and push.
-@arguments $PR_NUMBER: GitHub PR number to review and fix
-
-Read PR #$PR_NUMBER thoroughly using `gh pr view`. Understand the
-full context: description, linked issues, commit history, and the
-diff against the base branch. Check out the PR branch locally.
-
-Execute every step below sequentially. Do not stop or ask for
-confirmation at any step.
-
-## 1. Review
-
-Use `/compound-engineering:workflows:review` to perform a full
-multi-agent code review of PR #$PR_NUMBER. Produce a list of
-findings ranked by severity (P1 = blocks merge, P2 = important,
-P3 = nice to have, P4 = informational).
-
-## 2. Fix findings
-
-Address all P1-P3 findings. For each finding, either:
-
-- **Fix it** -- apply the change, or
-- **Dismiss it** -- explain why it's a false positive or not worth
-  the churn (e.g. a stylistic disagreement or an impossible edge
-  case). Document the reasoning inline.
-
-P4 findings are informational -- note them but do not fix unless
-trivial.
-
-## 3. Verify
-
-Run the project's full quality pipeline:
-
-1. Build (compile/bundle if the project has a build step)
-2. Run the full test suite -- iterate on failures until green
-3. Run linting, formatting, and type-checking -- fix any issues
-
-Refer to the project's CLAUDE.md or package.json/Makefile/etc.
-for the correct commands.
-
-## 4. Commit and push
-
-- Commit the fixes as a separate commit (do not squash into the
-  original -- preserve review history)
-- Use commit message: `fix: resolve code review findings for
-  PR #$PR_NUMBER`
-- Push the branch (regular push, not force-push)
-- Delete any todo files in `todos/` that were created by the
-  review and are now resolved
-
-## 5. Post summary
-
-Add a comment on PR #$PR_NUMBER summarizing what was done:
-
-- Total findings by severity (e.g. "3 P2, 5 P3")
-- How many were fixed vs dismissed (with brief reasoning for
-  any dismissals)
-- Confirmation that the quality pipeline passes
-```
+[`commands/review-pr.md`](commands/review-pr.md) -- Reviews a GitHub PR with parallel agents, fixes findings, and pushes. Invoke with `/review-pr 456` where `456` is the PR number.
 
 #### Fix Issue
 
-Takes a GitHub issue and fully autonomously completes it -- plans, implements, tests, creates a PR, self-reviews with parallel agents, fixes its own findings, and comments on the issue when done. Invoke with `/fix-issue 123` where `123` is the issue number.
-
-```markdown
-# Fix GitHub Issue
-
-@description End-to-end: plan, implement, test, PR, review, fix findings, and comment on a GitHub issue.
-@arguments $ISSUE_NUMBER: GitHub issue number to fix
-
-Read GitHub Issue #$ISSUE_NUMBER thoroughly. Understand the full
-context: problem description, acceptance criteria, linked PRs,
-and any discussion. Follow linked issues, referenced PRs, and
-external documentation to build complete understanding before
-planning.
-
-Execute every step below sequentially. Do not stop or ask for
-confirmation at any step.
-
-## 1. Plan
-
-Write a detailed implementation plan to `plan-issue-$ISSUE_NUMBER.md`
-in the repo root. The plan must:
-
-- Summarize the issue requirements
-- List every file to create or modify
-- Describe the approach and key design decisions
-- Call out risks or open questions
-- Reference relevant code paths by file:line
-
-## 2. Implement
-
-Implement the plan across all necessary files. Follow the
-project's CLAUDE.md standards. Keep changes minimal and focused
-on the issue requirements -- no speculative features.
-
-## 3. Build, test, lint
-
-Run the project's full quality pipeline in this order:
-
-1. Build (compile/bundle if the project has a build step)
-2. Run the full test suite -- iterate on failures until green
-3. Add new tests for the changed behavior
-4. Run linting, formatting, and type-checking -- fix any issues
-
-Refer to the project's CLAUDE.md or package.json/Makefile/etc.
-for the correct commands.
-
-## 4. Branch, commit, and push
-
-- Determine the branch prefix from the issue type: `fix/` for
-  bugs, `feat/` for features, `refactor/` for refactors, `docs/`
-  for documentation. When ambiguous, use `fix/`.
-- Create a branch named `{prefix}issue-$ISSUE_NUMBER`
-- Delete the plan file (`plan-issue-$ISSUE_NUMBER.md`) -- it was a
-  working artifact and should not be committed
-- Commit all changes with a conventional commit message referencing
-  the issue
-- Push the branch
-
-## 5. Create PR
-
-Create a PR with:
-
-- A concise title (under 70 chars)
-- A description that maps changes back to the issue requirements
-- Link to the issue with "Closes #$ISSUE_NUMBER" (or "Refs" if it
-  doesn't fully close it)
-
-## 6. Self-review
-
-Use `/compound-engineering:workflows:review` to perform a full
-multi-agent code review of the PR. Produce a list of findings
-ranked by severity (P1 = blocks merge, P2 = important, P3 = nice
-to have).
-
-## 7. Fix findings
-
-Address all P1-P3 findings. For each finding, either:
-
-- **Fix it** -- apply the change, or
-- **Dismiss it** -- explain why it's a false positive or not worth
-  the churn (e.g. a stylistic disagreement or an impossible edge
-  case). Document the reasoning inline.
-
-After addressing all findings:
-
-1. Re-run the full quality pipeline (build, test, lint)
-2. Commit the fixes as a separate commit (do not squash into the
-   original -- preserve review history)
-3. Push the branch (regular push, not force-push)
-4. Delete any todo files in `todos/` that were created by the
-   review and are now resolved
-
-## 8. Comment on issue
-
-Post a summary comment on Issue #$ISSUE_NUMBER linking to the PR.
-Include:
-
-- What was implemented (1-3 bullet points)
-- Key design decisions
-- Link to the PR
-```
+[`commands/fix-issue.md`](commands/fix-issue.md) -- Takes a GitHub issue and fully autonomously completes it -- plans, implements, tests, creates a PR, self-reviews with parallel agents, fixes its own findings, and comments on the issue when done. Invoke with `/fix-issue 123` where `123` is the issue number.
