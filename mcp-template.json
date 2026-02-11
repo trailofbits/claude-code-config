@@ -12,7 +12,7 @@
       }
     },
     "granola": {
-      "type": "streamable-http",
+      "type": "http",
       "url": "https://mcp.granola.ai/mcp"
     }
   }
