@@ -344,7 +344,7 @@ Where to publish depends on the audience:
 
 When you find yourself repeating the same multi-step workflow, extract it into a skill. Read Anthropic's [skill authoring best practices](https://platform.claude.com/docs/en/agents-and-tools/agent-skills/best-practices) for guidance on structure, descriptions, and testing.
 
-The short version: don't write skills by hand. Ask Claude to create a skill for you ([skill creator](https://github.com/anthropics/skills/blob/main/skills/skill-creator/SKILL.md) is already an Anthropic-made skill). If you find yourself repeating the same sequence of instructions in a project, ask Claude to convert that workflow into a skill. Then test it with `/my-skill` (or whatever you named it). Be specific with the description so Claude knows when to activate your skill.
+The short version: don't write skills by hand. Ask Claude to create one for you — Anthropic ships a [skill creator](https://github.com/anthropics/skills/blob/main/skills/skill-creator/SKILL.md) skill for this. When you notice yourself repeating the same workflow, ask Claude to extract it into a skill. Be specific in the description so Claude knows when to activate it.
 
 ### MCP Servers
 
