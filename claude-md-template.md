@@ -2,14 +2,20 @@
 
 Global instructions for all projects. Project-specific CLAUDE.md files override these defaults.
 
+- Prefer Exa AI (`mcp__exa__web_search_exa`) over `WebSearch` for all web searches
+- Use skills proactively when they match the task — suggest relevant ones, don't block on them
+
 ## Philosophy
 
-- **No speculative features** - Don't add "might be useful" functionality
-- **No premature abstraction** - Don't create utilities until you've written the same code three times; but preserve abstractions that genuinely improve organization
-- **Clarity over cleverness** - Prefer explicit, readable code over dense one-liners; reduce nesting with early returns
+- **No speculative features** - Don't add features, flags, or configuration unless users actively need them
+- **No premature abstraction** - Don't create utilities until you've written the same code three times
+- **Clarity over cleverness** - Prefer explicit, readable code over dense one-liners
 - **Justify new dependencies** - Each dependency is attack surface and maintenance burden
-- **No unnecessary configuration** - Don't add flags unless users actively need them
 - **No phantom features** - Don't document or validate features that aren't implemented
+- **Replace, don't deprecate** - When a new implementation replaces an old one, remove the old one entirely. No backward-compatible shims, dual config formats, or migration paths. Proactively flag dead code — it adds maintenance burden and misleads both developers and LLMs.
+- **Verify at every level** - Set up automated guardrails (linters, type checkers, pre-commit hooks, tests) as the first step, not an afterthought. Prefer structure-aware tools (ast-grep, LSPs, compilers) over text pattern matching. Review your own output critically. Every layer catches what the others miss.
+- **Bias toward action** - Decide and move for anything easily reversed; state your assumption so the reasoning is visible. Ask before committing to interfaces, data models, architecture, or destructive/write operations on external services.
+- **Finish the job** - Don't stop at the minimum that technically satisfies the request. Handle the edge cases you can see. Clean up what you touched. If something is broken adjacent to your change, flag it. But don't invent new scope — there's a difference between thoroughness and gold-plating.
 - **Agent-native by default** - Design so agents can achieve any outcome users can. Tools are atomic primitives; features are outcomes described in prompts. Prefer file-based state for transparency and portability. When adding UI capability, ask: can an agent achieve this outcome too?
 
 ## Code Quality
@@ -17,20 +23,18 @@ Global instructions for all projects. Project-specific CLAUDE.md files override 
 ### Hard limits
 
 1. ≤100 lines/function, cyclomatic complexity ≤8
-2. ≤5 positional params, ≤12 branches, ≤6 returns
+2. ≤5 positional params
 3. 100-char line length
-4. Ban relative (`..`) imports
+4. Absolute imports only — no relative (`..`) paths
 5. Google-style docstrings on non-trivial public APIs
-6. All code must pass type checking—no `type: ignore` without justification
+
+### Zero warnings policy
+
+Fix every warning from every tool — linters, type checkers, compilers, tests. If a warning truly can't be fixed, add an inline ignore with a justification comment. Never leave warnings unaddressed; a clean output is the baseline, not the goal.
 
 ### Comments
 
-Code should be self-documenting. If you need a comment to explain WHAT the code does, refactor.
-
-- No comments that repeat what code does
-- No commented-out code (delete it)
-- No obvious comments ("increment counter")
-- No comments instead of good naming
+Code should be self-documenting. No commented-out code—delete it. If you need a comment to explain WHAT the code does, refactor the code instead.
 
 ### Error handling
 
@@ -38,23 +42,25 @@ Code should be self-documenting. If you need a comment to explain WHAT the code 
 - Never swallow exceptions silently
 - Include context (what operation, what input, suggested fix)
 
-### When uncertain
-
-- State your assumption and proceed for small decisions
-- Ask before changes with significant unintended consequences
-
 ### Reviewing code
 
-Evaluate in this order: architecture (component boundaries, coupling, data flow, scaling, single points of failure) → code quality (DRY violations, error handling gaps, tech debt hotspots) → tests (coverage gaps, missing edge cases, untested error paths) → performance (N+1 queries, memory, caching opportunities, high-complexity paths).
+Evaluate in order: architecture → code quality → tests → performance. Before reviewing, sync to latest remote (`git fetch origin`).
 
-For each issue found:
-- Describe concretely with file:line references
-- Present 2–3 options (including "do nothing" where reasonable)
-- For each option: effort, risk, impact on other code, maintenance burden
-- Give your recommended option and why
-- Ask before proceeding
+For each issue: describe concretely with file:line references, present options with tradeoffs when the fix isn't obvious, recommend one, and ask before proceeding.
+
+### Testing
+
+**Test behavior, not implementation.** Tests should verify what code does, not how. If a refactor breaks your tests but not your code, the tests were wrong.
+
+**Test edges and errors, not just the happy path.** Empty inputs, boundaries, malformed data, missing files, network failures — bugs live in edges. Every error path the code handles should have a test that triggers it.
+
+**Mock boundaries, not logic.** Only mock things that are slow (network, filesystem), non-deterministic (time, randomness), or external services you don't control.
+
+**Verify tests catch failures.** Break the code, confirm the test fails, then fix. Use mutation testing (`cargo-mutants`, `mutmut`) to verify systematically. Use property-based testing (`proptest`, `hypothesis`) for parsers, serialization, and algorithms.
 
 ## Development
+
+When adding dependencies, CI actions, or tool versions, always look up the current stable version — never assume from memory unless the user provides one.
 
 ### CLI tools
 
@@ -71,13 +77,7 @@ For each issue found:
 | `wt` | git worktree | `wt switch branch` - manage parallel worktrees |
 | `trash` | rm | `trash file` - moves to macOS Trash (recoverable). **Never use `rm -rf`** |
 
-```bash
-# ast-grep structural search (prefer over grep for code patterns)
-ast-grep --pattern 'print($$$)' --lang py              # Find function calls
-ast-grep --pattern 'class $NAME: $$$' --lang py        # Find classes
-ast-grep --pattern 'async def $F($$$): $$$' --lang py  # Find async functions
-# $NAME = identifier, $$$ = any code. Languages: py, js, ts, rust, go
-```
+Prefer `ast-grep` over ripgrep when searching for code structure (function calls, class definitions, imports, pattern matching across arguments). Use ripgrep for literal strings and log messages.
 
 ### Python
 
@@ -90,19 +90,13 @@ ast-grep --pattern 'async def $F($$$): $$$' --lang py  # Find async functions
 | static types | `ty check` |
 | tests | `pytest -q` |
 
-```bash
-uv run ruff check --fix
-uv run ty check
-pytest -q
-```
+**Always use uv, ruff, and ty** over pip/poetry, black/pylint/flake8, and mypy/pyright — they're faster and stricter. Configure `ty` strictness via `[tool.ty.rules]` in pyproject.toml. Use `uv_build` for pure Python, `hatchling` for extensions.
 
-- `uv` instead of pip; `uv_build` for pure Python, `hatchling` for extensions
-- `ruff` only for linting (replaces black/pylint/flake8)
-- `ty check` for type checking; configure strictness via `[tool.ty.rules]` in pyproject.toml
+Tests in `tests/` directory mirroring package structure. Supply chain: `pip-audit` before deploying, pin exact versions (`==` not `>=`), verify hashes with `uv pip install --require-hashes`.
 
 ### Node/TypeScript
 
-**Runtime:** Node 22 LTS
+**Runtime:** Node 22 LTS, ESM only (`"type": "module"`)
 
 | purpose | tool |
 |---------|------|
@@ -111,12 +105,20 @@ pytest -q
 | test | `vitest` |
 | types | `tsc --noEmit` |
 
-```bash
-oxlint .
-oxfmt --write .
-vitest run
-tsc --noEmit
+**Always use oxlint and oxfmt** over eslint/prettier — they're faster and stricter. Enable `typescript`, `import`, `unicorn` plugins.
+
+**tsconfig.json strictness** — enable all of these:
+```jsonc
+"strict": true,
+"noUncheckedIndexedAccess": true,
+"exactOptionalPropertyTypes": true,
+"noImplicitOverride": true,
+"noPropertyAccessFromIndexSignature": true,
+"verbatimModuleSyntax": true,
+"isolatedModules": true
 ```
+
+Colocated `*.test.ts` files. Supply chain: `pnpm audit --audit-level=moderate` before installing, pin exact versions (no `^` or `~`), enforce 24-hour publish delay (`pnpm config set minimumReleaseAge 1440`), block postinstall scripts (`pnpm config set ignore-scripts true`).
 
 ### Rust
 
@@ -131,8 +133,6 @@ tsc --noEmit
 | supply chain | `cargo deny check` (advisories, licenses, bans) |
 | safety check | `cargo careful test` (stdlib debug assertions + UB checks) |
 
-**MANDATORY:** Run every tool in the table above before committing. Fix all warnings and ensure all checks pass—no exceptions.
-
 **Style:**
 - Prefer `for` loops with mutable accumulators over iterator chains
 - Shadow variables through transformations (no `raw_x`/`parsed_x` prefixes)
@@ -146,8 +146,8 @@ tsc --noEmit
 - `tracing` for logging (`error!`/`warn!`/`info!`/`debug!`), not println
 
 **Optimization:**
-- All code must be fully optimized: algorithmic efficiency, parallelization, SIMD where applicable
-- Profile before optimizing; measure after
+- Write efficient code by default — correct algorithm, appropriate data structures, no unnecessary allocations
+- Profile before micro-optimizing; measure after
 
 **Cargo.toml lints:**
 ```toml
@@ -180,185 +180,28 @@ similar_names = "allow"
 
 All scripts must start with `set -euo pipefail`. Lint: `shellcheck script.sh && shfmt -d script.sh`
 
-## Workflow
-
-### Making changes
-
-1. Run linters and type checker before committing
-2. Run relevant tests (not full suite) after changes
-3. Use `git diff` to verify changes before committing
-4. Never commit changes that break rules above—refactor instead
-5. For large reviews or multi-area changes, work one section at a time and pause for feedback before moving on
-
-### Git
-
-- Commit messages: imperative mood, ≤72 char subject line
-- One logical change per commit
-- Never amend/rebase commits already pushed to shared branches
-- Never push directly to main—use feature branches and PRs
-
-### Git worktrees
-
-Use `wt` (worktrunk) for managing parallel workspaces—enables running multiple agents simultaneously.
-
-```bash
-wt list                    # List all worktrees
-wt switch <branch>         # Create/switch to worktree for branch
-wt remove <branch>         # Clean up worktree and optionally delete branch
-wt merge <branch>          # Merge with squash/rebase options
-```
-
-**MANDATORY: Parallel subagents require worktrees.** When launching multiple subagents to work on separate issues/branches:
-- Each subagent MUST work in its own worktree (not the main repo)
-- Create worktree first: `wt switch <branch>` → gives path like `~/.worktrees/repo/branch`
-- Pass the worktree path to the subagent, not the main repo path
-- Never have multiple subagents share the same working directory
-
-Use `/parallel-issue-fixing` skill for the full workflow template.
-
-### Git hooks
-
-Use `prek` for pre-commit hooks (Rust-based, no Python): `prek install`, `prek run`, `prek auto-update --cooldown-days 7`
-
 ### GitHub Actions
 
-Pin actions to SHA hashes with version comments: `actions/checkout@<full-sha>  # vX.Y.Z` (use `persist-credentials: false`)
+Pin actions to SHA hashes with version comments: `actions/checkout@<full-sha>  # vX.Y.Z` (use `persist-credentials: false`). Scan workflows with `zizmor` before committing. Configure Dependabot with 7-day cooldowns and grouped updates.
 
-### Dependabot
+## Workflow
 
-Configure 7-day cooldowns in `.github/dependabot.yml` for supply chain protection (`cooldown.default-days: 7`).
+**Before committing:**
+1. Re-read your changes for unnecessary complexity, redundant code, and unclear naming
+2. Run relevant tests — not the full suite
+3. Run linters and type checker — fix everything before committing
 
-## Code Review
+**Commits:**
+- Imperative mood, ≤72 char subject line, one logical change per commit
+- Never amend/rebase commits already pushed to shared branches
+- Never push directly to main — use feature branches and PRs
+- Never commit secrets, API keys, or credentials — use `.env` files (gitignored) and environment variables
 
-Before reviewing or comparing PR code, always ensure the local repo is synced to the latest remote state (`git pull` or `git fetch origin`) to avoid reviewing stale code.
+**Hooks and worktrees:**
+- Install prek in every repo (`prek install`). Run `prek run` before committing. Configure auto-updates: `prek auto-update --cooldown-days 7`
+- Parallel subagents require worktrees. Each subagent MUST work in its own worktree (`wt switch <branch>`), not the main repo. Never share working directories.
 
-## Pull Requests
+**Pull requests:**
+Describe what the code does now — not discarded approaches, prior iterations, or alternatives. Only describe what's in the diff.
 
-When creating PRs, describe the current state of the code — not the journey of how it got there. If multiple approaches were tried across commits, the PR description should only reflect what actually landed. Do not include aspirational or planned changes that aren't in the diff.
-
-## Skills
-
-**Proactive skill usage is mandatory.** Before starting any non-trivial task:
-1. Review available skills for applicability
-2. Use the Skill tool to invoke matching skills—don't just announce them
-3. If no skill applies, proceed normally
-
-**Recommend missed opportunities.** If you notice a skill would help but wasn't requested:
-- Mention it briefly: "Consider using `/skill-name` for this—it handles [specific benefit]"
-- Don't block on it—offer and continue
-
-**Key triggers:**
-
-| When... | Use |
-|---------|-----|
-| Starting non-trivial work | `/superpowers:brainstorm` first |
-| Need implementation plan | `/superpowers:write-plan` |
-| Executing a plan | `/superpowers:execute-plan` |
-| Implementing features/bugfixes | `/superpowers:test-driven-development` |
-| Debugging any failure | `/superpowers:systematic-debugging` |
-| Before claiming "done" | `/superpowers:verification-before-completion` |
-| Creating commits | `/commit` |
-| Commit + push + PR | `/commit-push-pr` |
-| PR ready for review | `/code-review` |
-| Building frontend UIs | `/frontend-design` |
-| Multi-phase feature work | `/feature-dev` |
-| Need parallel workspace | `/superpowers:using-git-worktrees` |
-
-### Compound Engineering
-
-| When... | Use |
-|---------|-----|
-| Planning features/bugs | `/compound-engineering:workflows:plan` |
-| Multi-agent code review | `/compound-engineering:workflows:review` |
-| Executing work items | `/compound-engineering:workflows:work` |
-| Documenting solved problems | `/compound-engineering:workflows:compound` |
-| Performance analysis | `performance-oracle` agent |
-| Architecture review | `architecture-strategist` agent |
-| Research framework docs | `framework-docs-researcher` agent |
-| Analyze git history | `git-history-analyzer` agent |
-| Simplify code | `code-simplicity-reviewer` agent |
-| Python code review | `kieran-python-reviewer` agent |
-| Designing agent-native systems | `/compound-engineering:agent-native-architecture` |
-| Auditing agent parity | `/compound-engineering:agent-native-audit` |
-| Agent-native parity review | `agent-native-reviewer` agent |
-
-### Browser Automation
-
-Two options available:
-
-| Tool | Best for |
-|------|----------|
-| `agent-browser` | CLI-based, scriptable, video recording, parallel sessions |
-| Claude in Chrome (MCP) | Visual inspection, screenshots with image analysis |
-
-**agent-browser quick reference:**
-```bash
-agent-browser open <url>        # Navigate
-agent-browser snapshot -i       # Get interactive elements with refs
-agent-browser click @e1         # Click by ref
-agent-browser fill @e2 "text"   # Fill input
-agent-browser screenshot        # Capture screenshot
-agent-browser record start demo.webm && ... && agent-browser record stop
-```
-
-## Web Search
-
-**Prefer Exa AI** (`mcp__exa__web_search_exa`) over the built-in `WebSearch` tool for all web searches. Exa returns higher-quality, more relevant results. Use `WebSearch` only as a fallback if Exa is unavailable or returns errors.
-
-## Security
-
-### Version verification
-
-When adding dependencies, CI actions, or tool versions:
-1. **Always web search** for the current stable version
-2. Training data versions are stale—never assume from memory
-3. Exception: Skip if user explicitly provides the version
-
-### Secrets
-
-- Never commit secrets, API keys, or credentials
-- Use `.env` files (gitignored) for local dev
-- Reference secrets via environment variables
-
-### Python supply chain
-
-- Run `pip-audit` before deploying
-- Pin exact versions in production (`==` not `>=`)
-- Verify hashes: `uv pip install --require-hashes`
-
-### Node supply chain
-
-```bash
-# MANDATORY before any install
-pnpm config set minimumReleaseAge 1440  # 24-hour delay
-pnpm config set ignore-scripts true     # Block postinstall attacks
-```
-
-- Audit first: `pnpm audit --audit-level=moderate`
-- Pin exact versions (no `^` or `~`) in production
-
-## Testing
-
-**Mock boundaries, not logic.** Only mock things that are slow (network, filesystem), non-deterministic (time, randomness), or external services you don't control.
-
-**Verify tests catch failures:**
-1. Write the test for the bug/behavior you're preventing
-2. Temporarily break the code to verify the test fails
-3. Fix and verify it passes
-
-### Python test quality
-
-- Extract shared setup into pytest fixtures
-- Use `pytest.mark.parametrize` for test variations
-- Use `pytest-httpx` to mock HTTP endpoints
-- Use snapshot testing (`syrupy`) for complex outputs
-
-### Conventions
-
-- Python: `tests/` directory mirroring package structure
-- Node/TS: colocated `*.test.ts` files
-- No scheduled CI without code changes—activity without progress is theater
-
----
-
-> Don't push until explicitly asked. Don't be hyperbolic in PR writeups.
+Use plain, factual language. A bug fix is a bug fix, not a "critical stability improvement." Avoid: critical, crucial, essential, significant, comprehensive, robust, elegant.

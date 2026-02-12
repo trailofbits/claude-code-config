@@ -510,11 +510,7 @@ Browser automation via the [Claude in Chrome](https://chromewebstore.google.com/
 
 ### Commands
 
-Custom slash commands are markdown files that define reusable workflows. The two commands below started as manual workflows that showed up repeatedly in `/insights` -- reviewing PRs and fixing issues were the most common multi-step sequences, so they got extracted into commands. This is the [continuous improvement](#continuous-improvement) loop in practice: notice a pattern, make it systematic.
-
-Once a workflow is a command, it's not just faster for you -- it's something an agent can run too. You can point `/fix-issue` at 50 issues in parallel across worktrees, run `/review-pr` on every open PR in a repo, or schedule either as part of CI. Commands turn manual workflows into scalable operations.
-
-The `commands/` directory contains two examples you can copy into place:
+Custom slash commands are markdown files that define reusable workflows. The `commands/` directory contains two that started as manual workflows showing up repeatedly in `/insights` -- reviewing PRs and fixing issues were the most common multi-step sequences, so they got extracted into commands. This is the [continuous improvement](#continuous-improvement) loop in practice: notice a pattern, make it systematic.
 
 ```bash
 mkdir -p ~/.claude/commands
@@ -529,6 +525,8 @@ cp commands/fix-issue.md ~/.claude/commands/
 #### Fix Issue
 
 [`commands/fix-issue.md`](commands/fix-issue.md) -- Takes a GitHub issue and fully autonomously completes it -- plans, implements, tests, creates a PR, self-reviews with parallel agents, fixes its own findings, and comments on the issue when done. Invoke with `/fix-issue 123` where `123` is the issue number.
+
+Once a workflow is a command, it's not just faster for you -- it's something an agent can run too. You can point `/fix-issue` at 50 issues in parallel across worktrees, run `/review-pr` on every open PR in a repo, or schedule either as part of CI. Commands turn manual workflows into scalable operations.
 
 ### Recommended Skills
 
@@ -560,14 +558,5 @@ Multi-agent workflows for planning and review.
 
 | Skill | What it does | When to use it |
 |-------|-------------|----------------|
-| `/workflows:review` | Runs 15 specialized review agents in parallel (security, performance, architecture, style) | Before merging any significant PR -- catches what solo review misses |
 | `/workflows:plan` | Turns feature descriptions into implementation plans with parallel research agents | Starting a feature that touches multiple files or components |
-
-#### How these chain together
-
-```
-/superpowers:brainstorm     # clarify what you're building
-/workflows:plan             # plan the implementation
-  ... Claude implements ...
-/workflows:review           # multi-agent review before merging
-```
+| `/workflows:review` | Runs 15 specialized review agents in parallel (security, performance, architecture, style) | Before merging any significant PR -- catches what solo review misses |
