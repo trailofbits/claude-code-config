@@ -344,7 +344,7 @@ Where to publish depends on the audience:
 
 When you find yourself repeating the same multi-step workflow, extract it into a skill. Read Anthropic's [skill authoring best practices](https://platform.claude.com/docs/en/agents-and-tools/agent-skills/best-practices) for guidance on structure, descriptions, and testing.
 
-The short version: create `~/.claude/skills/my-skill/SKILL.md` with YAML frontmatter (`name`, `description`, `allowed-tools`) and markdown instructions. Test with `/my-skill`. Be specific in the `description` so Claude knows when to activate it.
+The short version: don't write skills by hand. Ask Claude to create a skill for you ([skill creator](https://github.com/anthropics/skills/blob/main/skills/skill-creator/SKILL.md) is already an Anthropic-made skill). If you find yourself repeating the same sequence of instructions in a project, ask Claude to convert that workflow into a skill. Then test it with `/my-skill` (or whatever you named it). Be specific with the description so Claude knows when to activate your skill.
 
 ### MCP Servers
 
@@ -512,4 +512,3 @@ cp commands/fix-issue.md ~/.claude/commands/
 #### Fix Issue
 
 [`commands/fix-issue.md`](commands/fix-issue.md) -- Takes a GitHub issue and fully autonomously completes it -- plans, implements, tests, creates a PR, self-reviews with parallel agents, fixes its own findings, and comments on the issue when done. Invoke with `/fix-issue 123` where `123` is the issue number.
-
