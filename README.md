@@ -1,14 +1,16 @@
 # Trail of Bits Claude Code Config
 
-Reference setup for Claude Code at Trail of Bits. Not a plugin -- just documentation and config files you copy into place.
+Opinionated defaults, documentation, and workflows for Claude Code at Trail of Bits. Covers sandboxing, permissions, hooks, skills, MCP servers, and usage patterns we've found effective across security audits, development, and research.
 
-From any Claude Code session:
+**First-time setup:**
 
+```bash
+git clone https://github.com/trailofbits/claude-code-config.git
+cd claude-code-config
+claude
 ```
-/trailofbits:config
-```
 
-This fetches the latest config from GitHub, detects what you already have, and walks you through installing each component. Run it again after updates. To bootstrap it the first time, clone the repo and run `claude`, then `/trailofbits:config` -- it self-installs so future runs work from anywhere.
+Then inside the session, run `/trailofbits:config`. It walks you through installing each component, detects what you already have, and self-installs the command so future runs work from any directory. Run `/trailofbits:config` again after updates.
 
 ## Contents
 
@@ -217,11 +219,11 @@ This is more powerful than system prompt instructions alone because hooks fire a
 
 Hooks are not a security boundary -- a prompt injection can work around them. They are **structured prompt injection at opportune times**: intercepting tool calls, injecting context, blocking known-bad patterns, and steering agent behavior. Guardrails, not walls.
 
-Use hooks for:
-- **Blocking known-bad patterns** (`rm -rf`, push to main, plan mode in constrained environments)
-- **Injecting context at decision points** (post-write lint results, pre-tool security warnings)
-- **Enforcing workflow conventions** (require tests pass before marking tasks complete)
-- **Adapting agent behavior** without modifying the agent itself (Agent SDK, MCP integrations)
+In practice, use them to:
+- **Block known-bad patterns** -- `rm -rf`, push to main, wrong package manager
+- **Add your own logging** -- audit trails, bash command logs, mutation tracking
+- **Nudge Claude to keep going** -- a `Stop` hook can review Claude's final response and force it to continue if it's rationalizing incomplete work
+- **Inject context at decision points** -- post-write lint results, pre-tool security warnings
 
 Guide and examples: [Automate workflows with hooks](https://code.claude.com/docs/en/hooks-guide)
 
@@ -436,7 +438,9 @@ Run `/insights` once a week. It analyzes your recent sessions and surfaces patte
 
 ### Output Styles
 
-Try the **Explanatory** [output style](https://code.claude.com/docs/en/output-styles) (`/output-style explanatory` or `"outputStyle": "Explanatory"` in `settings.json`). It adds "★ Insight" blocks explaining reasoning and design choices -- useful when auditing an unfamiliar codebase, reviewing code in a secondary language, or onboarding onto a client engagement. The tradeoff is context: longer responses mean earlier compaction. Switch back to the default when you want speed. You can also [create custom styles](https://code.claude.com/docs/en/output-styles) as markdown files in `~/.claude/output-styles/`.
+Enable the **Explanatory** [output style](https://code.claude.com/docs/en/output-styles) (`/output-style explanatory` or `"outputStyle": "Explanatory"` in `settings.json`) when getting familiar with a new codebase. Claude explains frameworks and code patterns as it works, adding "★ Insight" blocks with reasoning and design choices alongside its normal output. Useful when auditing unfamiliar code, reviewing a language you don't write daily, or onboarding onto a client engagement. The tradeoff is context: longer responses mean earlier compaction. Switch back to the default when you want speed. You can also [create custom styles](https://code.claude.com/docs/en/output-styles) as markdown files in `~/.claude/output-styles/`.
+
+You can also customize the spinner verbs that appear while Claude is working. Ask Claude: "In my settings, make my spinner verbs Star Trek themed."
 
 ### Context Management
 
@@ -528,7 +532,11 @@ cp commands/fix-issue.md ~/.claude/commands/
 
 ### Recommended Skills
 
-These skills from [trailofbits/skills](https://github.com/trailofbits/skills) are installed automatically when you add the Trail of Bits marketplace. They're a good starting point -- browse the [full catalog](https://github.com/trailofbits/skills) for more.
+Skills come from plugins you install via the Trail of Bits marketplaces and third-party marketplaces. Here are the ones worth knowing about from each.
+
+#### Trail of Bits ([trailofbits/skills](https://github.com/trailofbits/skills))
+
+Security auditing, code analysis, and development workflows. Installed automatically with the Trail of Bits marketplace.
 
 | Skill | What it does | When to use it |
 |-------|-------------|----------------|
@@ -536,3 +544,30 @@ These skills from [trailofbits/skills](https://github.com/trailofbits/skills) ar
 | `modern-python` | Configures projects with uv, ruff, ty, pytest, prek | New Python projects or migrating from pip/Poetry/mypy/black |
 | `audit-context-building` | Line-by-line code analysis using First Principles and 5 Whys methodology | Building deep understanding of unfamiliar code before an audit |
 | `differential-review` | Security-focused review of code changes with blast radius analysis | Reviewing PRs or commits where security impact matters |
+
+#### Superpowers ([obra/superpowers](https://github.com/obra/superpowers))
+
+Workflow discipline -- enforces planning before coding, structured debugging, and verification before declaring victory. The skills chain together: brainstorm → plan → execute → verify.
+
+| Skill | What it does | When to use it |
+|-------|-------------|----------------|
+| `/superpowers:brainstorm` | Refines ideas through Socratic questioning before implementation | Starting any non-trivial feature -- catches unclear requirements early |
+| `/superpowers:systematic-debugging` | Structured 4-phase root cause analysis | Any bug where the cause isn't obvious -- prevents treating symptoms |
+
+#### Compound Engineering ([EveryInc/compound-engineering-plugin](https://github.com/EveryInc/compound-engineering-plugin))
+
+Multi-agent workflows for planning and review.
+
+| Skill | What it does | When to use it |
+|-------|-------------|----------------|
+| `/workflows:review` | Runs 15 specialized review agents in parallel (security, performance, architecture, style) | Before merging any significant PR -- catches what solo review misses |
+| `/workflows:plan` | Turns feature descriptions into implementation plans with parallel research agents | Starting a feature that touches multiple files or components |
+
+#### How these chain together
+
+```
+/superpowers:brainstorm     # clarify what you're building
+/workflows:plan             # plan the implementation
+  ... Claude implements ...
+/workflows:review           # multi-agent review before merging
+```

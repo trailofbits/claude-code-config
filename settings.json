@@ -13,6 +13,14 @@
     "deny": [
       "Bash(rm -rf *)",
       "Bash(rm -fr *)",
+      "Bash(sudo *)",
+      "Bash(mkfs *)",
+      "Bash(dd *)",
+      "Bash(curl *|bash*)",
+      "Bash(wget *|bash*)",
+      "Bash(git push --force*)",
+      "Bash(git push *--force*)",
+      "Bash(git reset --hard*)",
 
       "Edit(~/.bashrc)",
       "Edit(~/.zshrc)",
