@@ -1,6 +1,8 @@
 #!/bin/bash
 set -euo pipefail
-# PostToolUse hook — logs GAM write operations to JSONL
+# EXAMPLE: PostToolUse hook — logs GAM (Google Apps Manager) write operations
+# to JSONL. Adapt the verb patterns for any CLI tool where you want an audit
+# trail of mutations. See README.md for wiring instructions.
 INPUT=$(cat)
 COMMAND=$(echo "${INPUT}" | jq -r '.tool_input.command // empty')
 

@@ -122,7 +122,7 @@ claude-local() {
 
 Copy `settings.json` to `~/.claude/settings.json` (or merge entries into your existing file). The `$schema` key enables autocomplete and validation in editors that support JSON Schema. The template includes:
 
-- **`env`** -- `CLAUDE_CODE_DISABLE_NONESSENTIAL_TRAFFIC` disables all non-essential traffic to Anthropic: Statsig telemetry, Sentry error reporting, feedback surveys, and the `/bug` command. No functional impact. The [admin analytics dashboard](https://code.claude.com/docs/en/analytics) is unaffected -- it's fed by API-level data, not these client-side streams.
+- **`env` (privacy)** -- disables three non-essential outbound streams: Statsig telemetry (`DISABLE_TELEMETRY`), Sentry error reporting (`DISABLE_ERROR_REPORTING`), and feedback surveys (`CLAUDE_CODE_DISABLE_FEEDBACK_SURVEY`). No functional impact. Auto-updates and the `/bug` command remain enabled. The [admin analytics dashboard](https://code.claude.com/docs/en/analytics) is unaffected -- it's fed by API-level data. Avoid the umbrella `CLAUDE_CODE_DISABLE_NONESSENTIAL_TRAFFIC` -- it also disables auto-updates.
 - **`env` (agent teams)** -- `CLAUDE_CODE_EXPERIMENTAL_AGENT_TEAMS` enables [multi-agent teams](https://code.claude.com/docs/en/agent-teams) where one session coordinates multiple teammates with independent context windows. Experimental -- known limitations around session resumption and task coordination.
 - **`enableAllProjectMcpServers: false`** -- this is the default, set explicitly so it doesn't get flipped by accident. Project `.mcp.json` files live in git, so a compromised repo could ship malicious MCP servers.
 - **`alwaysThinkingEnabled: true`** -- persists [extended thinking](https://code.claude.com/docs/en/common-workflows#use-extended-thinking-thinking-mode) across sessions. Toggle per-session with `Option+T`. Adds latency and cost on simple tasks; worth it for complex reasoning.
@@ -247,9 +247,11 @@ Guide and examples: [Automate workflows with hooks](https://code.claude.com/docs
 
 #### Examples
 
+> **These are patterns to adapt, not drop-in configs.** Only the two blocking hooks in `settings.json` are recommended defaults. Everything else below is here for inspiration -- read the code, understand what it does, and tailor it to your workflow before using it.
+
 **Blocking patterns** (`PreToolUse`, in `settings.json`): The two hooks in this repo's `settings.json` block `rm -rf` (suggests `trash` instead) and direct push to main/master (requires feature branches). Both read the Bash command from stdin via `jq`, match with regex, and exit 2 with an error message that tells Claude what to do instead.
 
-**Audit logging** (`PostToolUse`): [`hooks/log-gam.sh`](hooks/log-gam.sh) logs every write operation to a JSONL changelog. This example tracks GAM (Google Apps Manager) commands -- it classifies each command as read or write using verb pattern lists, skips reads, and logs mutations with timestamp, action, command, and exit status. After a successful write, it prints a banner reminding the operator a mutation occurred. Adapt the verb patterns for any CLI tool where you want an audit trail. Wire it up in `settings.json` as a `PostToolUse` hook on `Bash`, pointing the command at the script.
+**Audit logging** (`PostToolUse`): [`hooks/log-gam.sh`](hooks/log-gam.sh) shows how to build an audit trail for a CLI tool. This example tracks GAM (Google Apps Manager) commands -- it classifies each as read or write using verb pattern lists, skips reads, and logs mutations with timestamp, action, command, and exit status. The pattern generalizes: swap the verb lists for any CLI where you want to log mutations. Wire it up as a `PostToolUse` hook on `Bash`.
 
 **Bash command log** (`PostToolUse`): Appends every Bash command the agent runs to a log file with a timestamp. Useful for post-session review of what the agent actually did.
 
@@ -419,7 +421,7 @@ Or use the `claude-local` shell function from [Shell Setup](#shell-setup) to avo
 | `ANTHROPIC_DEFAULT_OPUS_MODEL` | Model for opus-tier tasks |
 | `ANTHROPIC_DEFAULT_HAIKU_MODEL` | Model for summarization tasks |
 | `CLAUDE_CODE_SUBAGENT_MODEL` | Model for subagent tasks |
-| `CLAUDE_CODE_DISABLE_NONESSENTIAL_TRAFFIC` | Set to `1` to disable telemetry |
+| `CLAUDE_CODE_DISABLE_NONESSENTIAL_TRAFFIC` | Set to `1` to disable all non-essential traffic (includes auto-updates) |
 
 ## Usage
 
@@ -430,6 +432,12 @@ Read Anthropic's [Best practices for Claude Code](https://code.claude.com/docs/e
 Most people's use of Claude Code plateaus early. You find a workflow that works, repeat it, and never discover what you're leaving on the table. The fix is a deliberate feedback loop: review what happened, adjust your setup, and let the next week benefit from what you learned.
 
 Run `/insights` once a week. It analyzes your recent sessions and surfaces patterns -- what's working, what's failing, where you're spending time. When it tells you something useful, act on it: add a rule to your CLAUDE.md, write a hook to block a mistake you keep making, extract a repeated workflow into a skill. Each adjustment compounds. After a few weeks your setup is meaningfully different from the defaults, tuned to how you actually work.
+
+### Output Styles
+
+Try the **Explanatory** [output style](https://code.claude.com/docs/en/output-styles) (`/output-style explanatory` or `"outputStyle": "Explanatory"` in `settings.json`). Instead of silently writing code, Claude explains its reasoning -- why it chose a particular approach, what tradeoffs it considered, and what the code actually does. Useful when auditing an unfamiliar codebase, reviewing code in a language you don't write daily, or onboarding onto a client engagement where you need to understand the architecture fast.
+
+The tradeoff is context: explanatory responses are longer, so you'll hit compaction sooner in long sessions. Switch back to the default when you want speed over narration. You can also [create custom output styles](https://code.claude.com/docs/en/output-styles) as markdown files in `~/.claude/output-styles/`.
 
 ### Context Management
 
