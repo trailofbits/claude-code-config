@@ -10,10 +10,6 @@
       "env": {
         "EXA_API_KEY": "your-exa-api-key-here"
       }
-    },
-    "granola": {
-      "type": "http",
-      "url": "https://mcp.granola.ai/mcp"
     }
   }
 }

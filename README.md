@@ -423,31 +423,31 @@ For the full list of environment variables (model overrides, subagent models, tr
 
 You can customize the spinner verbs that appear while Claude is working. Ask Claude: "In my settings, make my spinner verbs Hackers themed" — or Doom, or Star Trek, or anything else.
 
-## Usage
+# Usage
 
 Read Anthropic's [Best practices for Claude Code](https://code.claude.com/docs/en/best-practices) before anything in this section. It's the single most important resource for getting good results. Everything below builds on it.
 
-### Continuous Improvement
+## Continuous Improvement
 
 Most people's use of Claude Code plateaus early. You find a workflow that works, repeat it, and never discover what you're leaving on the table. The fix is a deliberate feedback loop: review what happened, adjust your setup, and let the next week benefit from what you learned.
 
 Run `/insights` once a week. It analyzes your recent sessions and surfaces patterns -- what's working, what's failing, where you're spending time. When it tells you something useful, act on it: add a rule to your CLAUDE.md, write a hook to block a mistake you keep making, extract a repeated workflow into a skill. Each adjustment compounds. After a few weeks your setup is meaningfully different from the defaults, tuned to how you actually work.
 
-### Project-level CLAUDE.md
+## Project-level CLAUDE.md
 
 For each project you work on, add a `CLAUDE.md` at the repo root with project-specific context. The [global CLAUDE.md](#global-claudemd) sets defaults; the project file layers on what's unique to this codebase. A good project CLAUDE.md includes architecture (directory tree, key abstractions), build and test commands (`make dev`, `make test`), codebase navigation patterns (ast-grep examples for your codebase), domain-specific APIs and gotchas, and testing conventions.
 
 For an example of a well-structured project CLAUDE.md, see [crytic/slither's CLAUDE.md](https://github.com/crytic/slither/blob/master/CLAUDE.md). It layers slither-specific context -- SlithIR internals, detector traversal patterns, type handling pitfalls -- on top of the same global standards from this repo.
 
-### Output Styles
+## Output Styles
 
 Enable the **Explanatory** [output style](https://code.claude.com/docs/en/output-styles) (`/output-style explanatory` or `"outputStyle": "Explanatory"` in `settings.json`) when getting familiar with a new codebase. Claude explains frameworks and code patterns as it works, adding "★ Insight" blocks with reasoning and design choices alongside its normal output. Useful when auditing unfamiliar code, reviewing a language you don't write daily, or onboarding onto a client engagement. The tradeoff is context: longer responses mean earlier compaction. Switch back to the default when you want speed. You can also [create custom styles](https://code.claude.com/docs/en/output-styles) as markdown files in `~/.claude/output-styles/`.
 
-### Context Management
+## Context Management
 
 The context window is finite and irreplaceable mid-session. Every file read, tool call, and conversation turn consumes it. When it fills up, Claude auto-compacts -- summarizing the conversation to free space. Auto-compaction works, but it's lossy: subtle decisions, error details, and the thread of reasoning degrade each time. The best strategy is to avoid needing it.
 
-#### Keeping sessions clean
+### Keeping sessions clean
 
 **Scope work to one session.** Each feature, bug fix, or investigation should fit within a single context window. If a task is too large, break it into pieces and run each in a fresh session. This is the single most effective thing you can do for quality.
 
@@ -459,7 +459,7 @@ A session that stays within its context budget produces better code than one tha
 
 **Cut your losses after two corrections.** If you've corrected Claude twice on the same issue and it's still wrong, don't keep pushing -- the context is polluted with failed approaches. Use checkpoints (`Esc Esc` or `/rewind`) to roll back to before the first wrong attempt and try again with a better prompt. If the session is too far gone even for that, `/clear` and start fresh. A clean prompt that incorporates what you learned almost always outperforms a long session with accumulated corrections.
 
-#### Tools for managing context
+### Tools for managing context
 
 **Checkpoints** (`Esc Esc` or `/rewind`) restore code and conversation to any previous prompt in the session. They're your undo system -- use them aggressively. Try risky approaches knowing you can rewind if they don't work out.
 
@@ -475,15 +475,15 @@ Use this deliberately: when a task requires reading a lot of documentation, expl
 
 If you need to pass context between sessions, commit your work, write a brief plan to a file, `/clear`, and start the next session by pointing Claude at that file. You can also resume previous sessions with `claude --continue` (picks up the last session) or `claude --resume` (lets you choose from recent sessions). But a fresh session with a written handoff is usually better than resuming a stale one -- the context is cleaner and the prompt cache is warm.
 
-### Web Browsing
+## Web Browsing
 
 Claude Code has three ways to interact with the web.
 
-#### Exa AI (MCP)
+### Exa AI (MCP)
 
 Semantic web search that returns clean, LLM-optimized text. Unlike the built-in `WebSearch` tool (which returns search result links that Claude then has to fetch and parse), Exa returns the actual content pre-extracted and formatted for LLM consumption. This saves context window and produces more relevant results. Your CLAUDE.md can instruct Claude to prefer Exa over `WebSearch`.
 
-#### agent-browser
+### agent-browser
 
 Headless browser automation via CLI. Runs its own Chromium instance -- it does **not** share your Chrome profile, cookies, or login sessions. This means it can't access authenticated pages (Google Docs, internal dashboards, etc.) without logging in from scratch. What it excels at is context efficiency: the snapshot/ref system (`@e1`, `@e2`) uses ~93% less context than sending full accessibility trees, so the agent can navigate complex multi-page workflows without exhausting its context window. Also supports video recording and parallel sessions.
 
@@ -497,11 +497,11 @@ agent-browser screenshot        # Capture screenshot
 
 You need to install the first-party skill for Claude to use agent-browser effectively -- see [agent-browser skill](#agent-browser-skill) in Configuration.
 
-#### Claude in Chrome (MCP)
+### Claude in Chrome (MCP)
 
 Browser automation via the [Claude in Chrome](https://chromewebstore.google.com/detail/claude/fcoeoabgfenejglbffodgkkbkcdhcgfn) extension. Operates inside your actual Chrome browser, so it has access to your existing login sessions, cookies, and extensions. This is the only option that can interact with authenticated pages (Gmail, Google Docs, Jira, internal tools) without re-authenticating. The tradeoff is that it uses screenshots and accessibility trees for page understanding, which consumes more context than agent-browser's ref system.
 
-#### When to use which
+### When to use which
 
 | Need | Use |
 |------|-----|
@@ -511,7 +511,7 @@ Browser automation via the [Claude in Chrome](https://chromewebstore.google.com/
 | Record a video of browser actions | agent-browser |
 | Inspect visual layout or take screenshots for analysis | Claude in Chrome |
 
-### Fast Mode
+## Fast Mode
 
 `/fast` toggles fast mode. Same Opus 4.6 model, ~2.5x faster output, 6x the cost per token. Leave it off by default.
 
@@ -519,7 +519,7 @@ The only time fast mode is worth it is **tight interactive loops** -- you're deb
 
 If you do use it, enable it at session start. Toggling it on mid-conversation reprices your entire context at fast-mode rates and invalidates prompt cache. See the [fast mode docs](https://code.claude.com/docs/en/fast-mode) for details.
 
-### Commands
+## Commands
 
 Custom slash commands are markdown files that define reusable workflows. The two in `commands/` were extracted from manual workflows that kept showing up in `/insights` -- if you notice yourself repeating the same multi-step sequence, it's a good candidate for a command.
 
@@ -529,21 +529,21 @@ cp commands/review-pr.md ~/.claude/commands/
 cp commands/fix-issue.md ~/.claude/commands/
 ```
 
-#### Review PR
+### Review PR
 
 [`commands/review-pr.md`](commands/review-pr.md) -- Reviews a GitHub PR with parallel agents, fixes findings, and pushes. Invoke with `/review-pr 456` where `456` is the PR number.
 
-#### Fix Issue
+### Fix Issue
 
 [`commands/fix-issue.md`](commands/fix-issue.md) -- Takes a GitHub issue and fully autonomously completes it -- plans, implements, tests, creates a PR, self-reviews with parallel agents, fixes its own findings, and comments on the issue when done. Invoke with `/fix-issue 123` where `123` is the issue number.
 
 Once a workflow is a command, it's not just faster for you -- it's something an agent can run too. You can point `/fix-issue` at 50 issues in parallel across worktrees, run `/review-pr` on every open PR in a repo, or schedule either as part of CI. Commands turn manual workflows into scalable operations.
 
-### Recommended Skills
+## Recommended Skills
 
 Skills come from plugins you install via the Trail of Bits marketplaces and third-party marketplaces. Here are the ones worth knowing about from each.
 
-#### Trail of Bits ([trailofbits/skills](https://github.com/trailofbits/skills))
+### Trail of Bits ([trailofbits/skills](https://github.com/trailofbits/skills))
 
 Security auditing, code analysis, and development workflows. Installed automatically with the Trail of Bits marketplace.
 
@@ -554,7 +554,7 @@ Security auditing, code analysis, and development workflows. Installed automatic
 | `audit-context-building` | Line-by-line code analysis using First Principles and 5 Whys methodology | Building deep understanding of unfamiliar code before an audit |
 | `differential-review` | Security-focused review of code changes with blast radius analysis | Reviewing PRs or commits where security impact matters |
 
-#### Superpowers ([obra/superpowers](https://github.com/obra/superpowers))
+### Superpowers ([obra/superpowers](https://github.com/obra/superpowers))
 
 Workflow discipline -- enforces planning before coding, structured debugging, and verification before declaring victory. The skills chain together: brainstorm → plan → execute → verify.
 
@@ -563,7 +563,7 @@ Workflow discipline -- enforces planning before coding, structured debugging, an
 | `/superpowers:brainstorm` | Refines ideas through Socratic questioning before implementation | Starting any non-trivial feature -- catches unclear requirements early |
 | `/superpowers:systematic-debugging` | Structured 4-phase root cause analysis | Any bug where the cause isn't obvious -- prevents treating symptoms |
 
-#### Anthropic Official ([anthropics/claude-code/plugins](https://github.com/anthropics/claude-code/tree/main/plugins))
+### Anthropic Official ([anthropics/claude-code/plugins](https://github.com/anthropics/claude-code/tree/main/plugins))
 
 Official plugins maintained in the Claude Code repo. Install via the `claude-plugins-official` marketplace.
 
@@ -574,7 +574,7 @@ Official plugins maintained in the Claude Code repo. Install via the `claude-plu
 
 The `code-simplifier` agent inside `pr-review-toolkit` can also be targeted individually with `/pr-review-toolkit:review-pr simplify` for a focused simplification pass.
 
-#### Compound Engineering ([EveryInc/compound-engineering-plugin](https://github.com/EveryInc/compound-engineering-plugin))
+### Compound Engineering ([EveryInc/compound-engineering-plugin](https://github.com/EveryInc/compound-engineering-plugin))
 
 Multi-agent workflows for planning and review.
 
@@ -583,7 +583,7 @@ Multi-agent workflows for planning and review.
 | `/workflows:plan` | Turns feature descriptions into implementation plans with parallel research agents | Starting a feature that touches multiple files or components |
 | `/workflows:review` | Runs 15 specialized review agents in parallel (security, performance, architecture, style) | Before merging any significant PR -- catches what solo review misses |
 
-### Recommended MCP Servers
+## Recommended MCP Servers
 
 Beyond the core Context7 and Exa servers (see [MCP Servers](#mcp-servers)), these are worth adding for specific workflows.
 
