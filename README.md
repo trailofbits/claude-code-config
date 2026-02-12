@@ -526,7 +526,7 @@ Skills and agents encode expertise rather than procedures. Where a command runs 
 
 **Skills** load instructions into the current session. They're conventions, checklists, and decision frameworks that shape how Claude approaches work -- not step-by-step scripts. **Agents** run in their own context window with a dedicated system prompt. Use an agent when the work benefits from a focused persona, would bloat the main session with context, needs a constrained tool set, or should run in parallel with other work.
 
-**Agent personas for security work.** Agents are underused in our plugins. A "senior auditor who's triaged hundreds of reentrancy bugs" approaches code differently than a "fuzzing engineer thinking about coverage and crash triage." The system prompt shapes what the agent notices and prioritizes, not just what steps it follows. When you have deep expertise in a vulnerability class or analysis methodology, encode it as an agent persona, not just a skill checklist.
+**Agent personas for security work.** A "senior auditor who's triaged hundreds of reentrancy bugs" approaches code differently than a "fuzzing engineer thinking about coverage and crash triage." The system prompt shapes what the agent notices and prioritizes, not just what steps it follows. When you have deep expertise in a vulnerability class or analysis methodology, encode it as an agent persona, not just a skill checklist.
 
 **Tooling.** The `plugin-dev` plugin (from `claude-plugins-official`) has workflows for both. `/plugin-dev:skill-development` walks you through a 6-step process for skills. `/plugin-dev:agent-development` does the same for agents. For a full plugin with multiple components, use `/plugin-dev:create-plugin` to orchestrate the process.
 
