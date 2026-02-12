@@ -1,6 +1,7 @@
 #!/bin/bash
 set -euo pipefail
-# PreToolUse hook — enforce pnpm in projects that use it
+# EXAMPLE: PreToolUse hook — blocks npm in projects that use pnpm.
+# Adapt for any "use X not Y" convention (e.g., yarn vs npm, uv vs pip).
 CMD=$(jq -r '.tool_input.command // empty')
 [[ -z "$CMD" ]] && exit 0
 
