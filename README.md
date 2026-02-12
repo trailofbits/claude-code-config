@@ -36,6 +36,7 @@ Then inside the session, run `/trailofbits:config`. It walks you through install
 - [Web Browsing](#web-browsing)
 - [Fast Mode](#fast-mode)
 - [Commands](#commands)
+- [Writing Skills and Agents](#writing-skills-and-agents)
 - [Recommended Skills](#recommended-skills)
 - [Recommended MCP Servers](#recommended-mcp-servers)
 
@@ -345,26 +346,6 @@ The `agent-browser` CLI (installed in [Prerequisites](#tools)) ships its own mar
 /plugin install agent-browser@agent-browser
 ```
 
-#### Publishing skills
-
-Where to publish depends on the audience:
-
-- **Public and open source** -- submit a PR to [trailofbits/skills](https://github.com/trailofbits/skills).
-- **Internal to Trail of Bits** -- submit a PR to [trailofbits/skills-internal](https://github.com/trailofbits/skills-internal).
-- **Third-party skill you want approved** -- submit a PR to [trailofbits/skills-curated](https://github.com/trailofbits/skills-curated) with attribution to the original source. Every PR gets code review.
-
-#### Writing skills and agents
-
-When you find yourself repeating the same multi-step workflow, extract it into a skill or agent. Read Anthropic's [skill authoring best practices](https://platform.claude.com/docs/en/agents-and-tools/agent-skills/best-practices) first for guidance on structure, descriptions, and progressive disclosure.
-
-**Skills vs. agents.** Skills load instructions into the current session. They're guidance: conventions, checklists, decision trees that enhance whatever the user is already doing. Agents run in their own context window with a dedicated system prompt. They're specialists you hand a job to and get results back from. Use an agent when the work benefits from a focused persona, would bloat the main session with context, needs a constrained tool set, or should run in parallel with other work.
-
-**Agent personas for security work.** Agents are underused in our plugins. A "senior auditor who's triaged hundreds of reentrancy bugs" approaches code differently than a "fuzzing engineer thinking about coverage and crash triage." The system prompt shapes what the agent notices and prioritizes, not just what steps it follows. When you have deep expertise in a vulnerability class or analysis methodology, encode it as an agent persona, not just a skill checklist.
-
-**Tooling.** The `plugin-dev` plugin (from `claude-plugins-official`) has workflows for both. `/plugin-dev:skill-development` walks you through a 6-step process for skills. `/plugin-dev:agent-development` does the same for agents. For a full plugin with multiple components, use `/plugin-dev:create-plugin` to orchestrate the process.
-
-**Quality.** For security skills and agents, don't just describe the workflow. Bundle the reference material that makes it expert-level: analysis checklists, vulnerability patterns, example outputs, and the decision logic an experienced auditor would apply. Keep the SKILL.md lean (under 2,000 words) and move detailed content into `references/` files.
-
 ### MCP Servers
 
 Everyone at Trail of Bits should set up at least **Context7** and **Exa** as global MCP servers.
@@ -538,6 +519,26 @@ cp commands/fix-issue.md ~/.claude/commands/
 [`commands/fix-issue.md`](commands/fix-issue.md) -- Takes a GitHub issue and fully autonomously completes it -- plans, implements, tests, creates a PR, self-reviews with parallel agents, fixes its own findings, and comments on the issue when done. Invoke with `/fix-issue 123` where `123` is the issue number.
 
 Once a workflow is a command, it's not just faster for you -- it's something an agent can run too. You can point `/fix-issue` at 50 issues in parallel across worktrees, run `/review-pr` on every open PR in a repo, or schedule either as part of CI. Commands turn manual workflows into scalable operations.
+
+## Writing Skills and Agents
+
+When you find yourself repeating the same multi-step workflow, extract it into a skill or agent. Read Anthropic's [skill authoring best practices](https://platform.claude.com/docs/en/agents-and-tools/agent-skills/best-practices) first for guidance on structure, descriptions, and progressive disclosure.
+
+**Skills vs. agents.** Skills load instructions into the current session. They're guidance: conventions, checklists, decision trees that enhance whatever the user is already doing. Agents run in their own context window with a dedicated system prompt. They're specialists you hand a job to and get results back from. Use an agent when the work benefits from a focused persona, would bloat the main session with context, needs a constrained tool set, or should run in parallel with other work.
+
+**Agent personas for security work.** Agents are underused in our plugins. A "senior auditor who's triaged hundreds of reentrancy bugs" approaches code differently than a "fuzzing engineer thinking about coverage and crash triage." The system prompt shapes what the agent notices and prioritizes, not just what steps it follows. When you have deep expertise in a vulnerability class or analysis methodology, encode it as an agent persona, not just a skill checklist.
+
+**Tooling.** The `plugin-dev` plugin (from `claude-plugins-official`) has workflows for both. `/plugin-dev:skill-development` walks you through a 6-step process for skills. `/plugin-dev:agent-development` does the same for agents. For a full plugin with multiple components, use `/plugin-dev:create-plugin` to orchestrate the process.
+
+**Quality.** For security skills and agents, don't just describe the workflow. Bundle the reference material that makes it expert-level: analysis checklists, vulnerability patterns, example outputs, and the decision logic an experienced auditor would apply. Keep the SKILL.md lean (under 2,000 words) and move detailed content into `references/` files.
+
+### Publishing skills
+
+Where to publish depends on the audience:
+
+- **Public and open source** -- submit a PR to [trailofbits/skills](https://github.com/trailofbits/skills).
+- **Internal to Trail of Bits** -- submit a PR to [trailofbits/skills-internal](https://github.com/trailofbits/skills-internal).
+- **Third-party skill you want approved** -- submit a PR to [trailofbits/skills-curated](https://github.com/trailofbits/skills-curated) with attribution to the original source. Every PR gets code review.
 
 ## Recommended Skills
 
