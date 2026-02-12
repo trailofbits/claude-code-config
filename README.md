@@ -336,6 +336,15 @@ claude plugin marketplace add trailofbits/skills-curated
 
 For external marketplaces (Anthropic official, superpowers, compound-engineering, etc.), see [skills-curated](https://github.com/trailofbits/skills-curated) -- it maintains the approved list and install scripts.
 
+#### agent-browser skill
+
+The `agent-browser` CLI (installed in [Prerequisites](#tools)) ships its own marketplace with a first-party skill that teaches Claude the snapshot/ref workflow, command syntax, session management, authentication flows, video recording, and proxy support (~2,000 lines of reference material plus reusable shell templates). agent-browser is new enough that it's not in the model's pretraining data -- without this skill, Claude won't know the ref lifecycle or command API.
+
+```
+/plugin marketplace add vercel-labs/agent-browser
+/plugin install agent-browser@agent-browser
+```
+
 #### Publishing skills
 
 Where to publish depends on the audience:
@@ -485,6 +494,8 @@ agent-browser click @e1         # Click element
 agent-browser fill @e2 "text"   # Fill input
 agent-browser screenshot        # Capture screenshot
 ```
+
+You need to install the first-party skill for Claude to use agent-browser effectively -- see [agent-browser skill](#agent-browser-skill) in Configuration.
 
 #### Claude in Chrome (MCP)
 
