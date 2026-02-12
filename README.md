@@ -31,7 +31,8 @@ This fetches the latest config from GitHub, detects what you already have, and w
 - [Continuous Improvement](#continuous-improvement)
 - [Context Management](#context-management)
 - [Web Browsing](#web-browsing)
-- [Example Commands](#example-commands)
+- [Commands](#commands)
+- [Recommended Skills](#recommended-skills)
 
 ## Getting Started
 
@@ -435,9 +436,7 @@ Run `/insights` once a week. It analyzes your recent sessions and surfaces patte
 
 ### Output Styles
 
-Try the **Explanatory** [output style](https://code.claude.com/docs/en/output-styles) (`/output-style explanatory` or `"outputStyle": "Explanatory"` in `settings.json`). Instead of silently writing code, Claude explains its reasoning -- why it chose a particular approach, what tradeoffs it considered, and what the code actually does. Useful when auditing an unfamiliar codebase, reviewing code in a language you don't write daily, or onboarding onto a client engagement where you need to understand the architecture fast.
-
-The tradeoff is context: explanatory responses are longer, so you'll hit compaction sooner in long sessions. Switch back to the default when you want speed over narration. You can also [create custom output styles](https://code.claude.com/docs/en/output-styles) as markdown files in `~/.claude/output-styles/`.
+Try the **Explanatory** [output style](https://code.claude.com/docs/en/output-styles) (`/output-style explanatory` or `"outputStyle": "Explanatory"` in `settings.json`). It adds "★ Insight" blocks explaining reasoning and design choices -- useful when auditing an unfamiliar codebase, reviewing code in a secondary language, or onboarding onto a client engagement. The tradeoff is context: longer responses mean earlier compaction. Switch back to the default when you want speed. You can also [create custom styles](https://code.claude.com/docs/en/output-styles) as markdown files in `~/.claude/output-styles/`.
 
 ### Context Management
 
@@ -493,7 +492,7 @@ agent-browser screenshot        # Capture screenshot
 
 #### Claude in Chrome (MCP)
 
-Browser automation via the [Claude in Chrome](https://chromewebstore.google.com/detail/claude-in-chrome/afnknkaociebljpilnhfkoigcfpaihih) extension. Operates inside your actual Chrome browser, so it has access to your existing login sessions, cookies, and extensions. This is the only option that can interact with authenticated pages (Gmail, Google Docs, Jira, internal tools) without re-authenticating. The tradeoff is that it uses screenshots and accessibility trees for page understanding, which consumes more context than agent-browser's ref system.
+Browser automation via the [Claude in Chrome](https://chromewebstore.google.com/detail/claude/fcoeoabgfenejglbffodgkkbkcdhcgfn) extension. Operates inside your actual Chrome browser, so it has access to your existing login sessions, cookies, and extensions. This is the only option that can interact with authenticated pages (Gmail, Google Docs, Jira, internal tools) without re-authenticating. The tradeoff is that it uses screenshots and accessibility trees for page understanding, which consumes more context than agent-browser's ref system.
 
 #### When to use which
 
@@ -505,9 +504,13 @@ Browser automation via the [Claude in Chrome](https://chromewebstore.google.com/
 | Record a video of browser actions | agent-browser |
 | Inspect visual layout or take screenshots for analysis | Claude in Chrome |
 
-### Example Commands
+### Commands
 
-Custom slash commands are markdown files that define reusable workflows. The `commands/` directory contains two examples you can copy into place:
+Custom slash commands are markdown files that define reusable workflows. The two commands below started as manual workflows that showed up repeatedly in `/insights` -- reviewing PRs and fixing issues were the most common multi-step sequences, so they got extracted into commands. This is the [continuous improvement](#continuous-improvement) loop in practice: notice a pattern, make it systematic.
+
+Once a workflow is a command, it's not just faster for you -- it's something an agent can run too. You can point `/fix-issue` at 50 issues in parallel across worktrees, run `/review-pr` on every open PR in a repo, or schedule either as part of CI. Commands turn manual workflows into scalable operations.
+
+The `commands/` directory contains two examples you can copy into place:
 
 ```bash
 mkdir -p ~/.claude/commands
@@ -522,3 +525,14 @@ cp commands/fix-issue.md ~/.claude/commands/
 #### Fix Issue
 
 [`commands/fix-issue.md`](commands/fix-issue.md) -- Takes a GitHub issue and fully autonomously completes it -- plans, implements, tests, creates a PR, self-reviews with parallel agents, fixes its own findings, and comments on the issue when done. Invoke with `/fix-issue 123` where `123` is the issue number.
+
+### Recommended Skills
+
+These skills from [trailofbits/skills](https://github.com/trailofbits/skills) are installed automatically when you add the Trail of Bits marketplace. They're a good starting point -- browse the [full catalog](https://github.com/trailofbits/skills) for more.
+
+| Skill | What it does | When to use it |
+|-------|-------------|----------------|
+| `ask-questions-if-underspecified` | Asks 1-5 targeted clarification questions before starting work | Any underspecified request -- prevents building the wrong thing |
+| `modern-python` | Configures projects with uv, ruff, ty, pytest, prek | New Python projects or migrating from pip/Poetry/mypy/black |
+| `audit-context-building` | Line-by-line code analysis using First Principles and 5 Whys methodology | Building deep understanding of unfamiliar code before an audit |
+| `differential-review` | Security-focused review of code changes with blast radius analysis | Reviewing PRs or commits where security impact matters |
