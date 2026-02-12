@@ -320,18 +320,16 @@ Claude Code's capabilities come from plugins, which provide skills (reusable wor
 
 #### Trail of Bits marketplaces
 
-Install the three Trail of Bits marketplaces:
+Install the Trail of Bits marketplaces:
 
 ```bash
 claude plugin marketplace add trailofbits/skills
-claude plugin marketplace add trailofbits/skills-internal
 claude plugin marketplace add trailofbits/skills-curated
 ```
 
 | Repository | Description |
 |------------|-------------|
 | [trailofbits/skills](https://github.com/trailofbits/skills) | Our public skills for security auditing, smart contract analysis, reverse engineering, code review, and development workflows. |
-| [trailofbits/skills-internal](https://github.com/trailofbits/skills-internal) | Automated exploitation, fuzz harness generation, vulnerability-class-specific analysis, audit report writing in the Trail of Bits house style, engagement scoping, client deliverables, and proprietary workflows. Private to Trail of Bits. |
 | [trailofbits/skills-curated](https://github.com/trailofbits/skills-curated) | Third-party skills and external marketplaces we've vetted and approved for use. Every addition gets code review. |
 
 For external marketplaces (Anthropic official, superpowers, compound-engineering, etc.), see [skills-curated](https://github.com/trailofbits/skills-curated) -- it maintains the approved list and install scripts.
@@ -341,7 +339,6 @@ For external marketplaces (Anthropic official, superpowers, compound-engineering
 Where to publish depends on the audience:
 
 - **Public and open source** -- submit a PR to [trailofbits/skills](https://github.com/trailofbits/skills).
-- **Internal to Trail of Bits** -- submit a PR to [trailofbits/skills-internal](https://github.com/trailofbits/skills-internal).
 - **Third-party skill you want approved** -- submit a PR to [trailofbits/skills-curated](https://github.com/trailofbits/skills-curated) with attribution to the original source. Every PR gets code review.
 
 #### Writing skills and agents
