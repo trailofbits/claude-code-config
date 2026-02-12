@@ -319,9 +319,9 @@ Claude Code's capabilities come from plugins, which provide skills (reusable wor
 Install the three Trail of Bits marketplaces:
 
 ```bash
-claude plugins install trailofbits@trailofbits
-claude plugins install trailofbits-internal@trailofbits-internal
-claude plugins install skills-curated@trailofbits-curated
+claude plugin marketplace add trailofbits/skills
+claude plugin marketplace add trailofbits/skills-internal
+claude plugin marketplace add trailofbits/skills-curated
 ```
 
 | Repository | Description |
@@ -345,6 +345,8 @@ Where to publish depends on the audience:
 When you find yourself repeating the same multi-step workflow, extract it into a skill. Read Anthropic's [skill authoring best practices](https://platform.claude.com/docs/en/agents-and-tools/agent-skills/best-practices) for guidance on structure, descriptions, and testing.
 
 The short version: don't write skills by hand. Ask Claude to create one for you — Anthropic ships a [skill creator](https://github.com/anthropics/skills/blob/main/skills/skill-creator/SKILL.md) skill for this. When you notice yourself repeating the same workflow, ask Claude to extract it into a skill. Be specific in the description so Claude knows when to activate it.
+
+The `plugin-dev` plugin (included by default from `claude-plugins-official`) provides `/skill-development` to extract skills from conversations and a `skill-reviewer` agent to check them against Anthropic's best practices.
 
 ### MCP Servers
 
