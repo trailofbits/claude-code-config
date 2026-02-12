@@ -35,6 +35,7 @@ Then inside the session, run `/trailofbits:config`. It walks you through install
 - [Web Browsing](#web-browsing)
 - [Commands](#commands)
 - [Recommended Skills](#recommended-skills)
+- [Recommended MCP Servers](#recommended-mcp-servers)
 
 ## Getting Started
 
@@ -357,13 +358,12 @@ The `plugin-dev` plugin (included by default from `claude-plugins-official`) pro
 
 ### MCP Servers
 
-Everyone at Trail of Bits should set up at least **Context7** and **Exa** as global MCP servers. Granola is a useful third if you use it for meeting notes.
+Everyone at Trail of Bits should set up at least **Context7** and **Exa** as global MCP servers.
 
 | Server | What it does | Requirements |
 |--------|-------------|--------------|
 | Context7 | Up-to-date library documentation lookup | None (no API key) |
 | Exa | Web and code search (see [Web Browsing](#web-browsing)) | `EXA_API_KEY` env var ([get one here](https://exa.ai)) |
-| Granola | Meeting notes and transcripts | Granola app with paid plan |
 
 #### Setup
 
@@ -554,6 +554,17 @@ Workflow discipline -- enforces planning before coding, structured debugging, an
 | `/superpowers:brainstorm` | Refines ideas through Socratic questioning before implementation | Starting any non-trivial feature -- catches unclear requirements early |
 | `/superpowers:systematic-debugging` | Structured 4-phase root cause analysis | Any bug where the cause isn't obvious -- prevents treating symptoms |
 
+#### Anthropic Official ([anthropics/claude-code/plugins](https://github.com/anthropics/claude-code/tree/main/plugins))
+
+Official plugins maintained in the Claude Code repo. Install via the `claude-plugins-official` marketplace.
+
+| Skill | What it does | When to use it |
+|-------|-------------|----------------|
+| `frontend-design` | Auto-invoked on frontend tasks with guidance on bold design, typography, animations, and visual polish -- avoids generic AI aesthetics | Building web components, pages, or applications where visual quality matters |
+| `/pr-review-toolkit:review-pr` | Runs 6 specialized agents in parallel: comments, tests, error handling, type design, code quality, and code simplification | PR review -- run with `all` or pick specific aspects (`simplify`, `tests`, `errors`, etc.) |
+
+The `code-simplifier` agent inside `pr-review-toolkit` can also be targeted individually with `/pr-review-toolkit:review-pr simplify` for a focused simplification pass.
+
 #### Compound Engineering ([EveryInc/compound-engineering-plugin](https://github.com/EveryInc/compound-engineering-plugin))
 
 Multi-agent workflows for planning and review.
@@ -562,3 +573,14 @@ Multi-agent workflows for planning and review.
 |-------|-------------|----------------|
 | `/workflows:plan` | Turns feature descriptions into implementation plans with parallel research agents | Starting a feature that touches multiple files or components |
 | `/workflows:review` | Runs 15 specialized review agents in parallel (security, performance, architecture, style) | Before merging any significant PR -- catches what solo review misses |
+
+### Recommended MCP Servers
+
+Beyond the core Context7 and Exa servers (see [MCP Servers](#mcp-servers)), these are worth adding for specific workflows.
+
+| Server | What it does | Requirements |
+|--------|-------------|--------------|
+| [Granola](https://granola.ai) | Meeting notes and transcripts | Granola app with paid plan |
+| [slither-mcp](https://github.com/trailofbits/slither-mcp) | Slither static analysis for Solidity smart contracts -- vulnerability detection, call graphs, inheritance mapping, function metadata | Python 3.11+, Solidity compiler (Foundry/Hardhat) |
+| [pyghidra-mcp](https://github.com/clearbluejar/pyghidra-mcp) | Headless Ghidra reverse engineering -- binary analysis, decompilation, cross-references, semantic search via embeddings | Ghidra (`GHIDRA_INSTALL_DIR` env var) |
+| [Serena](https://github.com/oraios/serena) | Symbol-level code navigation and editing across 30+ languages via LSP -- find symbols, references, and edit by symbol rather than line number | `uv`, language-specific LSP servers |
