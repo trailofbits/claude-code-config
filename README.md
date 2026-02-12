@@ -5,10 +5,10 @@ Reference setup for Claude Code at Trail of Bits. Not a plugin -- just documenta
 From any Claude Code session:
 
 ```
-/tob-config
+/trailofbits:config
 ```
 
-This fetches the latest config from GitHub, detects what you already have, and walks you through installing each component. Run it again after updates. To bootstrap it the first time, clone the repo and run `claude`, then `/tob-config` -- it self-installs so future runs work from anywhere.
+This fetches the latest config from GitHub, detects what you already have, and walks you through installing each component. Run it again after updates. To bootstrap it the first time, clone the repo and run `claude`, then `/trailofbits:config` -- it self-installs so future runs work from anywhere.
 
 ## Contents
 

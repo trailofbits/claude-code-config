@@ -42,6 +42,6 @@ Files to fetch when needed:
 
    - **Commands**: Write to `~/.claude/commands/review-pr.md` and/or `~/.claude/commands/fix-issue.md`. Create the directory if needed. Safe to overwrite.
 
-5. **Self-install.** After completing the user's selections, also install this setup command itself to `~/.claude/commands/tob-config.md` so the user can run `/tob-config` from any directory in the future without needing the repo cloned.
+5. **Self-install.** After completing the user's selections, also install this setup command itself to `~/.claude/commands/trailofbits/config.md` so the user can run `/trailofbits:config` from any directory in the future without needing the repo cloned.
 
 6. **Post-install.** Summarize what was installed/updated. If MCP servers were installed, remind the user about the Exa API key. If CLAUDE.md was installed, suggest they review and customize it.
