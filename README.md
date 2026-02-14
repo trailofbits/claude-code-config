@@ -508,17 +508,22 @@ Custom slash commands are markdown files that define parameterized procedures. T
 mkdir -p ~/.claude/commands
 cp commands/review-pr.md ~/.claude/commands/
 cp commands/fix-issue.md ~/.claude/commands/
+cp commands/merge-dependabot.md ~/.claude/commands/
 ```
 
 ### Review PR
 
-[`commands/review-pr.md`](commands/review-pr.md) -- Reviews a GitHub PR with parallel agents, fixes findings, and pushes. Invoke with `/review-pr 456` where `456` is the PR number.
+[`commands/review-pr.md`](commands/review-pr.md) -- Reviews a GitHub PR with parallel agents (pr-review-toolkit, Codex, Gemini), fixes findings, and pushes. Invoke with `/review-pr 456` where `456` is the PR number.
 
 ### Fix Issue
 
-[`commands/fix-issue.md`](commands/fix-issue.md) -- Takes a GitHub issue and fully autonomously completes it -- plans, implements, tests, creates a PR, self-reviews with parallel agents, fixes its own findings, and comments on the issue when done. Invoke with `/fix-issue 123` where `123` is the issue number.
+[`commands/fix-issue.md`](commands/fix-issue.md) -- Takes a GitHub issue and fully autonomously completes it -- researches, plans, implements, tests, creates a PR, self-reviews with parallel agents, fixes its own findings, and comments on the issue when done. Invoke with `/fix-issue 123` where `123` is the issue number.
 
-Once a workflow is a command, it's not just faster for you -- it's something an agent can run too. You can point `/fix-issue` at 50 issues in parallel across worktrees, run `/review-pr` on every open PR in a repo, or schedule either as part of CI. Commands turn manual workflows into scalable operations.
+### Merge Dependabot
+
+[`commands/merge-dependabot.md`](commands/merge-dependabot.md) -- Evaluates and merges open dependabot PRs for a repo. Audits dependabot config, builds a transitive dependency map, batches overlapping PRs, evaluates each in parallel (build, test, matrix gap analysis), and merges passing PRs sequentially with post-merge re-testing. Invoke with `/merge-dependabot trailofbits/algo`.
+
+Once a workflow is a command, it's not just faster for you -- it's something an agent can run too. You can point `/fix-issue` at 50 issues in parallel across worktrees, run `/review-pr` on every open PR in a repo, run `/merge-dependabot` across all your repos, or schedule any of them as part of CI. Commands turn manual workflows into scalable operations.
 
 ## Writing Skills and Agents
 
