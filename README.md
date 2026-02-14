@@ -2,6 +2,8 @@
 
 Opinionated defaults, documentation, and workflows for Claude Code at Trail of Bits. Covers sandboxing, permissions, hooks, skills, MCP servers, and usage patterns we've found effective across security audits, development, and research.
 
+> Also see: [skills](https://github.com/trailofbits/skills) · [skills-curated](https://github.com/trailofbits/skills-curated) · [claude-code-devcontainer](https://github.com/trailofbits/claude-code-devcontainer) · [dropkit](https://github.com/trailofbits/dropkit)
+
 **First-time setup:**
 
 ```bash
@@ -353,7 +355,7 @@ Everyone at Trail of Bits should set up at least **Context7** and **Exa** as glo
 | Server | What it does | Requirements |
 |--------|-------------|--------------|
 | Context7 | Up-to-date library documentation lookup | None (no API key) |
-| Exa | Web and code search (see [Web Browsing](#web-browsing)) | `EXA_API_KEY` env var ([get one here](https://exa.ai)) |
+| Exa | Web and code search (see [Web Browsing](#web-browsing)) | `EXA_API_KEY` env var (Trail of Bits employees: shared key in 1Password; external users: [get one here](https://exa.ai)) |
 
 #### Setup
 
@@ -502,7 +504,9 @@ If you do use it, enable it at session start. Toggling it on mid-conversation re
 
 ## Commands
 
-Custom slash commands are markdown files that define parameterized procedures. They take arguments, run a specific sequence of steps, and produce a result. The two in `commands/` were extracted from manual workflows that kept showing up in `/insights` -- if you notice yourself repeating the same multi-step sequence, it's a good candidate for a command.
+Custom slash commands are markdown files that define parameterized procedures. They take arguments, run a specific sequence of steps, and produce a result. These were extracted from manual workflows that kept showing up in `/insights` -- if you notice yourself repeating the same multi-step sequence, it's a good candidate for a command.
+
+Once a workflow is a command, it's something an agent can run too. Wrap a shell script around `claude -p` with `xargs -P` to dispatch the same command across repos in parallel -- each gets its own headless session with a budget cap.
 
 ```bash
 mkdir -p ~/.claude/commands
@@ -522,8 +526,6 @@ cp commands/merge-dependabot.md ~/.claude/commands/
 ### Merge Dependabot
 
 [`commands/merge-dependabot.md`](commands/merge-dependabot.md) -- Evaluates and merges open dependabot PRs for a repo. Audits dependabot config, builds a transitive dependency map, batches overlapping PRs, evaluates each in parallel (build, test, matrix gap analysis), and merges passing PRs sequentially with post-merge re-testing. Invoke with `/merge-dependabot trailofbits/algo`.
-
-Once a workflow is a command, it's not just faster for you -- it's something an agent can run too. You can point `/fix-issue` at 50 issues in parallel across worktrees, run `/review-pr` on every open PR in a repo, run `/merge-dependabot` across all your repos, or schedule any of them as part of CI. Commands turn manual workflows into scalable operations.
 
 ## Writing Skills and Agents
 
