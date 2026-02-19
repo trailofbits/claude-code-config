@@ -121,7 +121,7 @@ claude-local() {
   ANTHROPIC_BASE_URL=http://localhost:1234 \
   ANTHROPIC_AUTH_TOKEN=lmstudio \
   CLAUDE_CODE_DISABLE_NONESSENTIAL_TRAFFIC=1 \
-  claude "$@"
+  claude --model qwen/qwen3-coder-next "$@"
 }
 ```
 
@@ -381,8 +381,8 @@ Local models move fast. When this recommendation is stale, check the [LM Studio 
 Download, load, and serve -- all from the CLI:
 
 ```bash
-lms get lmstudio-community/Qwen3-Coder-Next-MLX-4bit -y
-lms load lmstudio-community/Qwen3-Coder-Next-MLX-4bit --context-length 32768 --gpu max -y
+lms get Qwen3-Coder-Next@MLX-4bit -y
+lms load qwen/qwen3-coder-next --context-length 32768 --gpu max -y
 lms server start
 ```
 
@@ -400,7 +400,12 @@ claude
 
 Or use the `claude-local` shell function from [Shell Setup](#shell-setup) to avoid typing the env vars every time.
 
+If `claude-local` fails with `The number of tokens to keep from the initial prompt is greater than the context length.` message, then try disabling auto-loaded tools (`--strict-mcp-config` first, then try also `--disable-slash-commands` and `--system-prompt "You are a helpful coding assistant."`).
+
+If `claude-local` fails with `request.thinking.type: Invalid discriminator value. Expected 'enabled' | 'disabled'"` then add `--settings '{"alwaysThinkingEnabled": false}'` flag.
+
 For the full list of environment variables (model overrides, subagent models, traffic controls, etc.), see the [model configuration docs](https://code.claude.com/docs/en/model-config).
+
 
 ### Personalization
 
