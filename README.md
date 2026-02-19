@@ -382,7 +382,7 @@ Download, load, and serve -- all from the CLI:
 
 ```bash
 lms get Qwen3-Coder-Next@MLX-4bit -y
-lms load qwen3-coder-next-mlx --context-length 32768 --gpu max -y
+lms load qwen/qwen3-coder-next --context-length 32768 --gpu max -y
 lms server start
 ```
 
