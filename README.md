@@ -137,7 +137,7 @@ Copy `settings.json` to `~/.claude/settings.json` (or merge entries into your ex
 - **`alwaysThinkingEnabled: true`** -- persists [extended thinking](https://code.claude.com/docs/en/common-workflows#use-extended-thinking-thinking-mode) across sessions. Toggle per-session with `Option+T`. Adds latency and cost on simple tasks; worth it for complex reasoning.
 - **`permissions`** -- deny rules that block reading credentials/secrets and editing shell config (see [Sandboxing](#sandboxing))
 - **`cleanupPeriodDays: 365`** -- keeps conversation history for a year instead of the default 30 days, so `/insights` has more data
-- **`hooks`** -- two `PreToolUse` hooks on Bash that block `rm -rf` and direct push to main (see [Hooks](#hooks))
+- **`hooks`** -- two `PreToolUse` hooks on Bash that block `rm -rf` and direct push to main, plus a `Stop` hook that catches rationalized incomplete work (see [Hooks](#hooks))
 - **`statusLine`** -- points to the statusline script (see below)
 
 #### Statusline
@@ -300,22 +300,9 @@ On Linux, replace the command with `notify-send 'Claude Code' 'Claude needs your
 
 **Anti-rationalization gate** (`Stop`, prompt hook): Claude has a tendency to declare victory while leaving work undone. It rationalizes skipping things: "these issues were pre-existing," "fixing this is out of scope," "I'll leave these for a follow-up." A prompt-based `Stop` hook catches this by asking a fast model to review Claude's final response for cop-outs before allowing it to stop.
 
-```json
-{
-  "Stop": [
-    {
-      "hooks": [
-        {
-          "type": "prompt",
-          "prompt": "Review the assistant's final response. Reject it if the assistant is rationalizing incomplete work. Common patterns: claiming issues are 'pre-existing' or 'out of scope' to avoid fixing them, saying there are 'too many issues' to address all of them, deferring work to a 'follow-up' that was not requested, listing problems without fixing them and calling that done, or skipping test/lint failures with excuses. If the response shows any of these patterns, respond {\"ok\": false, \"reason\": \"You are rationalizing incomplete work. [specific issue]. Go back and finish.\"}. If the work is genuinely complete, respond {\"ok\": true}."
-        }
-      ]
-    }
-  ]
-}
-```
+This hook is included in `settings.json`. It uses `type: "prompt"` instead of `type: "command"` -- Claude Code sends the hook's prompt plus the assistant's response to a fast model (Haiku), which returns a yes/no judgment. If rejected, the `reason` is fed back to Claude as its next instruction, forcing it to continue.
 
-This uses `type: "prompt"` instead of `type: "command"` -- Claude Code sends the hook's prompt plus the assistant's response to a fast model (Haiku), which returns a yes/no judgment. If rejected, the `reason` is fed back to Claude as its next instruction, forcing it to continue.
+**Important:** The prompt must explicitly instruct the evaluator to respond with raw JSON only. Without this, Haiku often wraps the JSON in markdown code fences or adds explanatory text, which fails JSON parsing and silently breaks the hook.
 
 ### Plugins and Skills
 
