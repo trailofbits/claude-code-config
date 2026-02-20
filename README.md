@@ -307,7 +307,8 @@ On Linux, replace the command with `notify-send 'Claude Code' 'Claude needs your
       "hooks": [
         {
           "type": "prompt",
-          "prompt": "Review the assistant's final response. Reject it if the assistant is rationalizing incomplete work. Common patterns: claiming issues are 'pre-existing' or 'out of scope' to avoid fixing them, saying there are 'too many issues' to address all of them, deferring work to a 'follow-up' that was not requested, listing problems without fixing them and calling that done, or skipping test/lint failures with excuses. If the response shows any of these patterns, respond {\"ok\": false, \"reason\": \"You are rationalizing incomplete work. [specific issue]. Go back and finish.\"}. If the work is genuinely complete, respond {\"ok\": true}."
+          "prompt": "You are a JSON-only evaluator. You MUST respond with a single JSON object and NOTHING else. No markdown, no code fences, no explanation, no preamble. Just the raw JSON object.\n\nReview the assistant's final response. Reject if the assistant is rationalizing incomplete work: claiming issues are 'pre-existing' or 'out of scope', saying 'too many issues' to fix, deferring to unrequested 'follow-ups', listing problems without fixing them, or skipping test/lint failures with excuses.\n\nIf any of those patterns apply, respond:\n{\"ok\": false, \"reason\": \"You are rationalizing incomplete work. [specific issue]. Go back and finish.\"}\n\nOtherwise respond:\n{\"ok\": true}",
+          "timeout": 30
         }
       ]
     }
@@ -316,6 +317,8 @@ On Linux, replace the command with `notify-send 'Claude Code' 'Claude needs your
 ```
 
 This uses `type: "prompt"` instead of `type: "command"` -- Claude Code sends the hook's prompt plus the assistant's response to a fast model (Haiku), which returns a yes/no judgment. If rejected, the `reason` is fed back to Claude as its next instruction, forcing it to continue.
+
+**Important:** The prompt must explicitly instruct the evaluator to respond with raw JSON only. Without this, Haiku wraps the JSON in markdown code fences or adds explanatory text, which fails JSON parsing and silently breaks the hook.
 
 ### Plugins and Skills
 
