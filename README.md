@@ -153,13 +153,35 @@ Line 1 shows the model, current folder, and git branch. Line 2 shows a visual co
 
 Copy the script:
 
+**macOS / Linux** (requires `jq`):
+
 ```bash
 mkdir -p ~/.claude
 cp scripts/statusline.sh ~/.claude/statusline.sh
 chmod +x ~/.claude/statusline.sh
 ```
 
-The `statusLine` entry in `settings.json` points to this script. Requires `jq`.
+**Windows** (PowerShell 5.1+, no additional dependencies):
+
+```powershell
+Copy-Item scripts/statusline.ps1 ~/.claude/statusline.ps1
+```
+
+Then set the `statusLine` entry in `settings.json` to point to the correct script:
+
+```jsonc
+// macOS / Linux
+"statusLine": {
+  "type": "command",
+  "command": "~/.claude/statusline.sh"
+}
+
+// Windows
+"statusLine": {
+  "type": "command",
+  "command": "powershell -NoProfile -File ~/.claude/statusline.ps1"
+}
+```
 
 ### Global CLAUDE.md
 
