@@ -25,6 +25,9 @@
       "Edit(~/.bashrc)",
       "Edit(~/.zshrc)",
       "Edit(~/.ssh/**)",
+      "Write(~/.bashrc)",
+      "Write(~/.zshrc)",
+      "Write(~/.ssh/**)",
 
       "Read(~/.ssh/**)",
       "Read(~/.gnupg/**)",
