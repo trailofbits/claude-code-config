@@ -46,6 +46,9 @@
       "Read(~/Library/Application Support/**/solflare*/**)"
     ]
   },
+  "sandbox": {
+    "allowUnsandboxedCommands": false
+  },
   "hooks": {
     "PreToolUse": [
       {
