@@ -4,6 +4,7 @@ Global instructions for all projects. Project-specific CLAUDE.md files override 
 
 - Prefer Exa AI (`mcp__exa__web_search_exa`) over `WebSearch` for all web searches
 - Use skills proactively when they match the task — suggest relevant ones, don't block on them
+- Always use markdown link syntax for clickable file references: `[file.rs:42](src/file.rs#L42)` for lines, `[file.rs:10-20](src/file.rs#L10-L20)` for ranges, `[src/utils/](src/utils/)` for directories. Never use backtick-only references for files.
 
 ## Philosophy
 
