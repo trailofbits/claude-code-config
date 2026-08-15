@@ -74,7 +74,7 @@ When adding dependencies, CI actions, or tool versions, always look up the curre
 | `actionlint` | - | `actionlint .github/workflows/` - GitHub Actions linter |
 | `zizmor` | - | `zizmor .github/workflows/` - Actions security audit |
 | `prek` | pre-commit | `prek run` - fast git hooks (Rust, no Python) |
-| `wt` | git worktree | `wt switch branch` - manage parallel worktrees |
+| `wt` | git worktree | `wt switch branch` - terminal worktree management (subagents use `isolation: "worktree"` on the Agent tool) |
 | `trash` | rm | `trash file` - moves to macOS Trash (recoverable). **Never use `rm -rf`** |
 
 Prefer `ast-grep` over ripgrep when searching for code structure (function calls, class definitions, imports, pattern matching across arguments). Use ripgrep for literal strings and log messages.
@@ -199,7 +199,7 @@ Pin actions to SHA hashes with version comments: `actions/checkout@<full-sha>  #
 
 **Hooks and worktrees:**
 - Install prek in every repo (`prek install`). Run `prek run` before committing. Configure auto-updates: `prek auto-update --cooldown-days 7`
-- Parallel subagents require worktrees. Each subagent MUST work in its own worktree (`wt switch <branch>`), not the main repo. Never share working directories.
+- Parallel subagents require worktree isolation. Use `isolation: "worktree"` on the Agent tool — each subagent gets its own sandbox-compatible worktree with automatic cleanup. Never share working directories.
 
 **Pull requests:**
 Describe what the code does now — not discarded approaches, prior iterations, or alternatives. Only describe what's in the diff.

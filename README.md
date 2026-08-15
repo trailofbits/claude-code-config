@@ -183,7 +183,7 @@ At Trail of Bits we run Claude Code in bypass-permissions mode (`--dangerously-s
 
 Claude Code has a native sandbox that provides filesystem and network isolation using OS-level primitives (Seatbelt on macOS, bubblewrap on Linux). Enable it by typing `/sandbox` in a session. In auto-allow mode, Bash commands that stay within sandbox boundaries run without permission prompts.
 
-**Default behavior:** Writes are restricted to the current working directory and its subdirectories. Reads are unrestricted -- the agent can still read `~/.ssh`, `~/.aws`, etc. Network access is limited to explicitly allowed domains.
+**Default behavior:** Writes are restricted to the current working directory and its subdirectories. Reads are unrestricted -- the agent can still read `~/.ssh`, `~/.aws`, etc. Network access is limited to explicitly allowed domains. Tools that create directories outside CWD (e.g., `wt` with default sibling-directory paths) will be blocked.
 
 **Hardening reads:** The `settings.json` template includes `Read` and `Edit` deny rules that block access to credentials and secrets:
 
