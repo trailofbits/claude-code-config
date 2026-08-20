@@ -229,6 +229,8 @@ Guide and examples: [Automate workflows with hooks](https://code.claude.com/docs
 
 Don't want to write hooks by hand? The [hookify plugin](https://github.com/anthropics/claude-plugins-official/tree/main/plugins/hookify) generates them from plain English -- `/hookify Warn me when I use rm -rf commands`.
 
+Looking for more examples than what's below? [loqimean/awesome-claude-code-hooks](https://github.com/loqimean/awesome-claude-code-hooks) is a community-maintained list of hook scripts and configs for various use cases.
+
 #### Hook events
 
 | Event | When it fires | Can block? |
