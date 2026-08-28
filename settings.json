@@ -57,7 +57,7 @@
           },
           {
             "type": "command",
-            "command": "CMD=$(jq -r '.tool_input.command'); if echo \"$CMD\" | grep -qE 'git[[:space:]]+push.*(main|master)'; then echo 'BLOCKED: Use feature branches, not direct push to main' >&2; exit 2; fi"
+            "command": "CMD=$(jq -r '.tool_input.command'); if echo \"$CMD\" | grep -qE 'git[[:space:]]+push[[:space:]].*[[:space:]:/+](main|master)([[:space:]]|$)'; then echo 'BLOCKED: Use feature branches, not direct push to main' >&2; exit 2; fi"
           }
         ]
       }
