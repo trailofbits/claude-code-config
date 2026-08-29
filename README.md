@@ -218,6 +218,8 @@ When a worktree helper gets blocked this way, the danger isn't the blocked write
 
 Without `/sandbox`, deny rules only block Claude's built-in tools -- Bash commands bypass them. With `/sandbox` enabled, the same rules are enforced at the OS level (Seatbelt/bubblewrap), so Bash commands are also blocked. Use both.
 
+**Hardening the escape hatch:** Under bypass-permissions mode, a Bash call blocked by the sandbox can be retried by the agent with `dangerouslyDisableSandbox: true`, and the harness honors that retry with no user prompt. The `sandbox.allowUnsandboxedCommands: false` setting (included in this `settings.json`) makes the harness refuse those retries -- the rejection surfaces back to the agent as "disabled by policy in this environment". The setting is dormant unless the sandbox is enabled (via `/sandbox` or `"enabled": true`), so it imposes no friction on devcontainer and droplet workflows that never run `/sandbox`.
+
 For the design rationale behind sandboxing, see Anthropic's [engineering blog post](https://www.anthropic.com/engineering/claude-code-sandboxing). For the full configuration reference, see the [sandboxing docs](https://code.claude.com/docs/en/sandboxing).
 
 #### Devcontainer
